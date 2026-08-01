@@ -1,26 +1,45 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* DESIGN_SYSTEM.md §1 カラーパレット */
+  --color-navy: #0f2e4f;
+  --color-navy-hover: #163f6b;
+  --color-accent: #a61a72;
+  --color-accent-tint: #fff0ff;
+  --color-ink: #101820;
+  --color-gray-700: #6d6e71;
+  --color-gray-500: #9ba1a6;
+  --color-gray-450: #8c9298;
+  --color-gray-400: #c6cbcf;
+  --color-gray-300: #d9dcdf;
+  --color-gray-100: #f3f4f5;
+  --color-gray-050: #fbfbfc;
+  --color-danger: #b3261e;
+  --color-danger-tint: #fdedeb;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* DESIGN_SYSTEM.md §3 角丸・シャドウ */
+  --radius-panel: 8px;
+  --radius-control: 6px;
+  --shadow-panel: 0 1px 4px rgba(15, 46, 79, 0.08);
+
+  /* DESIGN_SYSTEM.md §2 タイポグラフィ */
+  --font-sans: var(--font-noto-sans-jp), "Hiragino Sans", -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --font-archivo: var(--font-archivo-google), sans-serif;
+  --text-base: 13px;
+  --text-base--line-height: 1.5;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--color-navy);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
