@@ -17,11 +17,19 @@ Phase 0 完了。Phase 1 進行中（共通レイアウト・UIコンポーネ�
 - `/login`（DESIGN_SYSTEM.md §5.9パターン）、`/`（`/login`へredirect）を実装。`/dev-preview`に一時的な確認用ページを作成（Phase 4以降で実画面ができ次第削除予定、名刺管理ツールの`_design_preview.php`と同じ位置づけ）。
 - Headless Chromium（Playwright）でPC幅(1280px)・スマホ幅(390px)双方のスクリーンショットを確認し、崩れがないことを確認済み。
 
+Phase 2（データ層）も完了。Supabaseは新しいAPIキー体系（Publishable key / Secret key、旧anon key・service_role keyの後継）で運用しており、`lib/supabase/{client,server,service}.ts` もそれに合わせて実装（env変数名は `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY`）。
+
+- `supabase/migrations/0001_init.sql`：spec §6 の全12テーブル・RLS補助関数（`is_authorized_for_client` / `is_agency_user`）・RLSポリシーを作成。`supabase/seed.sql`：施策マスタ17件・`platform_integrations`3件（すべて`pending_review`）を投入。いずれもSupabase DashboardのSQL Editorから実行（Supabase CLIのlink/loginは今回未使用）。
+- **spec.mdの見落としを発見・修正**：`campaign_metrics`/`funnel_metrics`の`UNIQUE(..., location_id, ...)`制約は、`location_id`がnull（全社共通）の場合にPostgresの「NULLは他のどのNULLとも一致しない」という挙動により重複を防げないことが判明。特定拠点用・全社共通用に分けた部分ユニークインデックス（`where location_id is not null` / `where location_id is null`）に変更（`0001_init.sql`）。
+- `ad_connections`（OAuthトークンを含む）は`authenticated`ロールへのRLSポリシーを一切設けず、Service Role（Secret key）経由のみアクセス可能とした。クライアントごとのアクセス制御はNext.jsのサーバー側コード（Route Handler）で行う設計とする。
+- `clients`テーブルのRLSは新規作成時に割当がまだ存在しない問題があったため、INSERTのみ`is_agency_user()`（代理店ユーザーなら誰でも作成可）、SELECT/UPDATEは`is_authorized_for_client(id)`と分離。
+- 検証：Service Roleクライアントで`campaign_channels`17件・`platform_integrations`3件の取得を確認。Publishable keyのみ（未ログイン）での`campaign_channels`/`clients`参照が0件（RLSでブロック）になることを確認。`campaign_metrics`に同一クライアント・チャネル・期間で`location_id=null`の行を2件insertし、2件目が一意性制約違反で失敗することを確認（検証用データは後片付け済み）。
+
 | Phase | 状態 |
 |---|---|
 | 0 基盤セットアップ | ✅ 完了 |
 | 1 デザインシステム移植 | 🟡 進行中（共通コンポーネント完了、残りはPhase 4以降で `dev-preview` 削除のみ） |
-| 2 データ層（Supabase/Postgres） | 未着手 |
+| 2 データ層（Supabase/Postgres） | ✅ 完了 |
 | 3 認証・アカウント管理 | 未着手 |
 | 4 クライアント・拠点管理 | 未着手 |
 | 5 施策データ手動入力 | 未着手 |
