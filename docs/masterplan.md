@@ -40,6 +40,20 @@ Phase 2（データ層）も完了。Supabaseは新しいAPIキー体系（Publi
 | 10 レポート機能 | 未着手 |
 | 11 仕上げ | 未着手 |
 
+### ▶ 次回のアクション（Phase 3 — 認証・アカウント管理から再開）
+
+2026-08-01時点でここまで完了し、作業を一旦中断する。次回セッションは以下から再開する。
+
+- **前提の確認事項**（再度ユーザーに聞き直す必要はない、済んでいるはず）：GitHubリポジトリ `nagata-md/dashboadmark` にpush済み。Supabaseプロジェクト作成済み・`.env.local` にURL/Publishable key/Secret keyとも設定済み。migrations/seedはSupabase Dashboard経由で適用済み（§2参照）。**Vercel連携はまだ**（`vercel link` またはダッシュボードでのGitHubリポジトリimportが未実施）。
+- **Phase 3 でやること**（§2 Phase 3 の詳細も参照）：
+  1. Supabase Auth（メール+パスワード）を有効化する。
+  2. **`middleware.ts` を追加する（未着手・重要）**。`@supabase/ssr` の `createServerClient` は「ミドルウェアでのセッション更新なしだと原因不明の予期しないログアウト・認証エラーが起きる」と明記しているため、Phase 3 の最初にこれを作ること（`src/lib/supabase/server.ts` の `setAll` は Server Component からは書き込めない旨のコメントを参照）。
+  3. `agency_users` / `client_users` のサインアップ/招待フロー（Supabase Auth の `auth.users` 作成と同じ id でプロフィール行を作成、spec §6）。
+  4. 代理店担当者が新規クライアント登録時に住宅会社側の初期アカウントを同時発行する導線（spec §4.1）。
+  5. `/agency/users` / `/client/users` の追加ユーザー招待画面。
+  6. 初期データ投入：最初の代理店ユーザー（社内の実運用担当者）を1人、Supabase Dashboard の Authentication 画面から手動作成し、`agency_users` テーブルに対応する行を作る（この最初の1人だけは招待フローが無いので手動投入が必要）。
+- 完了条件・受け入れ基準は §2 Phase 3、§3 の対応表を参照。
+
 ---
 
 ## 0. 前提と現状
@@ -282,4 +296,4 @@ vercel.json         # Cron設定（E4）
 4. 各フェーズ末で完了条件と対応する受け入れ基準を実機チェックしてから次へ進む。
 5. D1 は解決済み方針（フェーズドロールアウト）で進行中。新たな ⚠️ が発生した場合は本書と spec.md 双方に追記して可視化し、対応するフェーズ着手前に確定させる。
 
-> 次アクション候補：①Phase 0（Next.js/Supabase プロジェクト作成・Vercel 連携） → ②`supabase/migrations` の作成（Phase 2） → ③各媒体の API 利用申請に着手（§0 D1、実装と並行）。
+> 次アクション候補（2026-08-01時点）：①`middleware.ts` の追加とSupabase Authの有効化（Phase 3） → ②`agency_users`/`client_users` のサインアップ・招待フロー実装 → ③Vercel連携（まだ未実施） → ④各媒体のAPI利用申請の進捗確認（§0 D1、実装と並行・Metaは実績要件があるため優先度高）。冒頭「実装状況」の「▶ 次回のアクション」に詳細あり。
