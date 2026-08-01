@@ -30,16 +30,49 @@
   --text-base--line-height: 1.5;
 }
 
-body {
-  font-size: var(--text-base);
-  line-height: 1.5;
-}
+@layer base {
+  body {
+    font-size: var(--text-base);
+    line-height: 1.5;
+  }
 
-a {
-  color: var(--color-navy);
-  text-decoration: none;
-}
+  a {
+    color: var(--color-navy);
+    text-decoration: none;
+  }
 
-a:hover {
-  text-decoration: underline;
+  a:hover {
+    text-decoration: underline;
+  }
+
+  /* DESIGN_SYSTEM.md §5.3 フォーム */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  input[type="url"],
+  input[type="file"],
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--color-ink);
+    border: 1px solid var(--color-gray-400);
+    border-radius: var(--radius-control);
+    padding: 7px 10px;
+    background: #ffffff;
+    width: 100%;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-accent);
+  }
 }
