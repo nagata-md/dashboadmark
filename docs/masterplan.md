@@ -9,12 +9,18 @@
 
 ## 実装状況（2026-08-01）
 
-**未着手。** spec.md（v1）は確定済み（§10 の未決定事項は媒体 API 審査の申請要否確認のみで、実装のブロッカーにはならない）。本書はこれから実装に着手するための計画書であり、以降の内容は今後の実装に合わせて随時更新する。
+Phase 0 完了。Phase 1 進行中（共通レイアウト・UIコンポーネントが完了、残りはPhase 4以降で実画面ができ次第 `dev-preview` を削除するのみ）。
+
+- Next.js (App Router / TypeScript) を `npx create-next-app` で作成し、GitHub（`nagata-md/dashboadmark`）にpush済み。Vercel連携は未実施。
+- Tailwind v4 の `@theme inline`（`src/app/globals.css`）に DESIGN_SYSTEM.md のカラーパレット・角丸・シャドウ・タイポグラフィ（Noto Sans JP / Archivo）を移植。**注意点**：カスタムのbaseスタイル（`a`要素・input要素等）は必ず `@layer base` の中に書くこと。`@layer` の外に書くと、CSS Cascade Layers の仕様により Tailwind のユーティリティクラス（`@layer utilities`）より常に優先されてしまい、実際に `text-white/80` 指定のサイドバーナビリンクが `a { color: navy }` に上書きされ navy-on-navy で不可視になる不具合が発生した（修正済み）。
+- 共通コンポーネントを実装：`components/layout/{AppShell,Sidebar,PageHeader}.tsx`、`components/ui/{Button,Panel,Tag,FormRow,FilterBar}.tsx`。Sidebarは768px以下でハンバーガー変形（§4.1）。
+- `/login`（DESIGN_SYSTEM.md §5.9パターン）、`/`（`/login`へredirect）を実装。`/dev-preview`に一時的な確認用ページを作成（Phase 4以降で実画面ができ次第削除予定、名刺管理ツールの`_design_preview.php`と同じ位置づけ）。
+- Headless Chromium（Playwright）でPC幅(1280px)・スマホ幅(390px)双方のスクリーンショットを確認し、崩れがないことを確認済み。
 
 | Phase | 状態 |
 |---|---|
-| 0 基盤セットアップ | 未着手 |
-| 1 デザインシステム移植 | 未着手 |
+| 0 基盤セットアップ | ✅ 完了 |
+| 1 デザインシステム移植 | 🟡 進行中（共通コンポーネント完了、残りはPhase 4以降で `dev-preview` 削除のみ） |
 | 2 データ層（Supabase/Postgres） | 未着手 |
 | 3 認証・アカウント管理 | 未着手 |
 | 4 クライアント・拠点管理 | 未着手 |
