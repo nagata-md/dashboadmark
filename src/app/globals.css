@@ -17,6 +17,14 @@
   --color-danger: #b3261e;
   --color-danger-tint: #fdedeb;
 
+  /* 本プロダクト固有拡張（spec.md §12.3）：媒体連携・同期状態の表示に必要な
+     成功/警告トーン。DESIGN_SYSTEM.md には無いが、danger と同系統の
+     彩度・明度に揃えて情報密度・トーンを維持する */
+  --color-success: #1e7a46;
+  --color-success-tint: #eaf7ef;
+  --color-warning: #9a6400;
+  --color-warning-tint: #fff6e5;
+
   /* DESIGN_SYSTEM.md §3 角丸・シャドウ */
   --radius-panel: 8px;
   --radius-control: 6px;
@@ -50,6 +58,8 @@
   input[type="email"],
   input[type="password"],
   input[type="date"],
+  input[type="month"],
+  input[type="number"],
   input[type="url"],
   input[type="file"],
   select,

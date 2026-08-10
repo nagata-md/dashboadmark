@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 export interface SidebarNavItem {
@@ -28,6 +29,8 @@ export function Sidebar({
   onLogout,
 }: SidebarProps) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const currentHref = activeHref ?? pathname;
 
   return (
     <aside className="flex w-full flex-col bg-navy p-3.5 text-white md:w-60 md:flex-shrink-0 md:p-6">
@@ -53,7 +56,7 @@ export function Sidebar({
       >
         <ul className="mb-6 list-none space-y-0.5 border-t border-white/10 pt-3">
           {navItems.map((item) => {
-            const active = item.href === activeHref;
+            const active = item.href === currentHref;
             return (
               <li key={item.href}>
                 <Link
