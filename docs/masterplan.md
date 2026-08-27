@@ -583,11 +583,12 @@ vercel.json         # Cron設定（E4）
 - `/agency/clients/[id]/targets`・`/agency/clients/[id]/campaigns`・ダッシュボード各コンポーネントは、まだ旧実装（会社全体のみのKPI4種、予算機能なし、チャネル無効化なし）のまま。モックの内容を実データに接続する作業は未着手。
 - 施策マスタの有効/無効を切り替える管理画面UIは未実装。
 - 外部連携ID機能はブラウザでの実機確認ができていない（Google OAuth認証が必要なため）。
-- **本セッションの変更は`git commit`していない**（`docs/improvement.md`・`docs/spec.md`・マイグレーション2件・モックページ・クライアント登録/一覧画面の変更、いずれも未コミット。`git status`で確認すること）。
+
+**コミット**：本セッションの変更は`git commit`済み（コミット`35c7aed`「Add improvement.md; design targets/budget/channel-management overhaul; implement client external ID」）。**ただし`origin`へは未push**（ローカルのみ、2026-08-27時点でmainはorigin/mainより4コミット先行）。push・Vercelへの反映が必要な場合はユーザーに確認すること。
 
 **次回セッション開始時に最初に確認すること**：
 
-1. `git status`で本セッションの変更が残っているか確認する（ローカル環境が変わっていれば要注意）。
+1. `git log -1`で上記コミットが残っているか確認する（ローカル環境が変わっていれば要注意）。`git push`はまだ行っていないため、リモートには反映されていない。
 2. `docs/improvement.md`の「実装状況サマリー」（ファイル冒頭）を読み、優先度・進捗を把握する。
 3. マイグレーション（0004・0005）をSupabaseに適用するかどうかをユーザーと確認する（本番/共有DBへの影響を伴う操作のため、実行前に必ず確認する）。
 

@@ -22,7 +22,7 @@
 1. `supabase/migrations/0004_*.sql`・`0005_*.sql`をSupabaseに適用する（まだ未適用。適用前に本番/共有DBへの影響を必ず確認すること）。
 2. `/agency/clients/[id]/targets`を`campaign_targets`テーブルに接続し、`src/app/dev-preview/targets-budget/page.tsx`のUIを実データ版として移植する。
 3. 施策マスタの有効/無効管理画面（§3-3）を実装する。
-4. 本セッションの変更は**まだ`git commit`していない**（`git status`で確認すること）。`docs/masterplan.md`の実装フェーズ表・セッション終了メモにも本セッションの内容を反映済み（末尾「## 9.」参照）ので、作業開始前に必ず読むこと。
+4. 本セッションの変更はコミット済み（`35c7aed`「Add improvement.md; design targets/budget/channel-management overhaul; implement client external ID」）。**ただし`origin`へは未push**（`git status -sb`で`ahead`の数を確認すること）。`docs/masterplan.md`の実装フェーズ表・セッション終了メモにも本セッションの内容を反映済み（末尾「## 9.」参照）ので、作業開始前に必ず読むこと。
 
 ---
 
