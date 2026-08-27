@@ -15,7 +15,7 @@
 - §3-3（施策マスタのクライアント別有効/無効管理）・§3-4（施策マスタ管理の独立ページ化）：**実装済み**（2026-08-27、4セッション目、同セッション内でのユーザーフィードバックを反映）。当初`/agency/clients/[id]/campaigns`に直接追加した「施策の有効/無効管理」パネルは操作性が悪いとユーザーから指摘があり（実機確認結果）、広告アカウント接続状況・施策の有効/無効管理・クライアント固有施策マスタ管理をまとめて`/agency/clients/[id]/campaigns/channels`という独立ページに分離した。判定ロジックは`src/lib/campaigns/channelVisibility.ts`に共通化し、施策一覧（入力対象）・ダッシュボードのチャネル別内訳・目標/予算のチャネル別計画の3箇所すべてで無効化が反映される。
 - §2-7（年間予実ビュー）：**実装・DB接続完了**（`/agency/clients/[id]/targets`の「年間予実」タブ、読み取り専用）。
 - §9-4（クライアントの外部連携ID）：**実装済み**（`supabase/migrations/0005_client_external_id.sql`、`/agency/clients/new`・`/agency/clients`の実コード変更）。マイグレーション・ブラウザ実機確認とも完了（2026-08-27ユーザー確認済み）。
-- §1-3（期間選択フォームの不要欄常時表示）：**実装済み**（2026-08-27、4セッション目）。`PeriodTypeFields`・`ReportGenerateForm`・`DashboardPeriodForm`（いずれも新規クライアントコンポーネント）を施策/来場/見積/契約/ダッシュボード/レポートの6画面に適用。ブラウザ実機確認はまだ。
+- §1-3（期間選択フォームの不要欄常時表示）：**実装済み・実機確認完了**（2026-08-27、4セッション目）。`PeriodTypeFields`・`ReportGenerateForm`・`DashboardPeriodForm`（いずれも新規クライアントコンポーネント）を施策/来場/見積/契約/ダッシュボード/レポートの6画面に適用し、ユーザーが代理店側・住宅会社側とも実機確認済み。
 
 **上記以外の項目（§0・§2-1〜2-6・§5・§6等）は、まだ「提案・発見」の段階で、モック化・DB設計・実装のいずれも着手していない。§1は1-3のみ完了、1-1・1-2は未着手。**
 
@@ -66,7 +66,7 @@
   - `src/components/reports/ReportGenerateForm.tsx`（新規）：月次/週次/カスタムの3択＋比較期間トグルを扱うレポート専用コンポーネント。基準期間の種別に応じて対応する1欄のみ表示し、「比較期間を含める」がオフの間は比較欄自体を非表示にする（最大6欄→最小1欄に削減）。`RealReports.tsx`（代理店・住宅会社どちらの`/reports`からも共有）に適用。
   - `src/components/dashboard/DashboardPeriodForm.tsx`（新規）：ダッシュボードの「期間比較を表示する」チェックがオフの間は比較期間欄を非表示にする。`RealDashboard.tsx`に適用。
   - `campaigns/entry`ページ（期間種別を選ぶUIを持たず、既に決まった期間をhiddenフィールドで引き継ぐだけ）は対象外。
-  - 検証：`npx tsc --noEmit`・`npm run lint`・`npm run test`（33件）・`npm run build`すべて成功。
+  - 検証：`npx tsc --noEmit`・`npm run lint`・`npm run test`（33件）・`npm run build`すべて成功。ユーザーによるブラウザ実機確認も完了（代理店側3画面＋住宅会社側`/client/visits`・`/client/proposals`・`/client/contracts`の3画面すべて）。
 
 ### 🟡 1-4. 「未入力」と「0」の区別がつかない
 
