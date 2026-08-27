@@ -21,3 +21,18 @@ export function resolvePeriod(
   }
   return null;
 }
+
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+// 期間・拠点を選択するGETフォーム（施策データ・来場・見積/図面出し・契約の各入力画面）で、
+// クエリパラメータが一切無い初回表示時のみ「月次・今月」をデフォルトにする（2026-08-27
+// ユーザー指摘：毎回「表示」を押さないとデータが出ないのは手間）。periodType/periodMonth/
+// periodWeekStartのいずれかが既に指定されていれば（ユーザーが一度でも選択・送信済み）、
+// その指定をそのまま尊重する。
+export function withDefaultPeriod(params: PeriodParams): PeriodParams {
+  if (params.periodType || params.periodMonth || params.periodWeekStart) return params;
+  return { periodType: "monthly", periodMonth: currentMonthKey() };
+}

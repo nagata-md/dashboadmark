@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { PeriodTypeFields } from "@/components/forms/PeriodTypeFields";
 import { requireClientUser } from "@/lib/auth/requireClientUser";
 import { createClient } from "@/lib/supabase/server";
-import { resolvePeriod, type PeriodParams } from "@/lib/campaigns/period";
+import { resolvePeriod, withDefaultPeriod, type PeriodParams } from "@/lib/campaigns/period";
 import { getFunnelMetric } from "@/lib/funnel/upsertFunnelMetric";
 import { saveVisits } from "./actions";
 
@@ -23,7 +23,8 @@ export default async function VisitsPage({
 }) {
   const clientUser = await requireClientUser();
   const sp = await searchParams;
-  const period = resolvePeriod(sp);
+  const effectiveSp = withDefaultPeriod(sp);
+  const period = resolvePeriod(effectiveSp);
   const locationId = sp.locationId && sp.locationId !== "" ? sp.locationId : null;
 
   const supabase = await createClient();
@@ -49,8 +50,8 @@ export default async function VisitsPage({
         <form method="get" className="flex flex-wrap items-end gap-4">
           <PeriodTypeFields
             defaultType={period?.periodType ?? "monthly"}
-            defaultMonth={sp.periodMonth}
-            defaultWeekStart={sp.periodWeekStart}
+            defaultMonth={effectiveSp.periodMonth}
+            defaultWeekStart={effectiveSp.periodWeekStart}
           />
           <FormRow label="拠点" className="mb-0">
             <select name="locationId" defaultValue={locationId ?? ""}>
@@ -74,9 +75,9 @@ export default async function VisitsPage({
             <input type="hidden" name="locationId" value={locationId ?? ""} />
             <input type="hidden" name="periodType" value={period.periodType} />
             {period.periodType === "monthly" ? (
-              <input type="hidden" name="periodMonth" value={sp.periodMonth} />
+              <input type="hidden" name="periodMonth" value={effectiveSp.periodMonth} />
             ) : (
-              <input type="hidden" name="periodWeekStart" value={sp.periodWeekStart} />
+              <input type="hidden" name="periodWeekStart" value={effectiveSp.periodWeekStart} />
             )}
             <FormRow label="来場予約数">
               <input

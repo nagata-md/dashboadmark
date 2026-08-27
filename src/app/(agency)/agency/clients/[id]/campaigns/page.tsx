@@ -11,7 +11,7 @@ import { CampaignEntryTable, type CampaignEntryRow } from "@/components/campaign
 import { getClient } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
 import { isChannelVisible } from "@/lib/campaigns/channelVisibility";
-import { resolvePeriod, type PeriodParams } from "@/lib/campaigns/period";
+import { resolvePeriod, withDefaultPeriod, type PeriodParams } from "@/lib/campaigns/period";
 import type { FieldKey } from "@/lib/campaigns/fieldKeys";
 import { formatYen } from "@/lib/metrics/adMetrics";
 import { addProductionCost, deleteProductionCost, revertToApiValue, saveCampaignMetric } from "./actions";
@@ -55,7 +55,8 @@ export default async function AgencyCampaignsPage({
   if (!realClient) notFound();
 
   const sp = await searchParams;
-  const period = resolvePeriod(sp);
+  const effectiveSp = withDefaultPeriod(sp);
+  const period = resolvePeriod(effectiveSp);
   const locationId = sp.locationId && sp.locationId !== "" ? sp.locationId : null;
 
   const { data: locations } = await supabase
@@ -184,8 +185,8 @@ export default async function AgencyCampaignsPage({
         <form method="get" className="flex flex-wrap items-end gap-4">
           <PeriodTypeFields
             defaultType={period?.periodType ?? "monthly"}
-            defaultMonth={sp.periodMonth}
-            defaultWeekStart={sp.periodWeekStart}
+            defaultMonth={effectiveSp.periodMonth}
+            defaultWeekStart={effectiveSp.periodWeekStart}
           />
           <FormRow label="拠点" className="mb-0">
             <select name="locationId" defaultValue={locationId ?? ""}>
@@ -212,8 +213,8 @@ export default async function AgencyCampaignsPage({
               clientId={clientId}
               locationId={locationId}
               periodType={period.periodType}
-              periodMonth={sp.periodMonth}
-              periodWeekStart={sp.periodWeekStart}
+              periodMonth={effectiveSp.periodMonth}
+              periodWeekStart={effectiveSp.periodWeekStart}
             />
           </Panel>
 
@@ -265,9 +266,9 @@ export default async function AgencyCampaignsPage({
               <input type="hidden" name="locationId" value={locationId ?? ""} />
               <input type="hidden" name="periodType" value={period.periodType} />
               {period.periodType === "monthly" ? (
-                <input type="hidden" name="periodMonth" value={sp.periodMonth} />
+                <input type="hidden" name="periodMonth" value={effectiveSp.periodMonth} />
               ) : (
-                <input type="hidden" name="periodWeekStart" value={sp.periodWeekStart} />
+                <input type="hidden" name="periodWeekStart" value={effectiveSp.periodWeekStart} />
               )}
               <FormRow label="項目名" className="mb-0">
                 <input type="text" name="itemName" required />
