@@ -636,33 +636,36 @@ vercel.json         # Cron設定（E4）
 
 ## 11. 2026-08-27（続き・4セッション目）セッション終了メモ（次回はここから読む）
 
-同日4つ目のセッション。ユーザーから「順番に進めてください」との指示を受け、「## 10.」の積み残しリストのうち、自分で完結できる項目（①push、③施策マスタ有効/無効管理画面、⑤ダッシュボードへの予算・消化率表示統合）を順に実施した。②・④（ブラウザ実機確認）はGoogle OAuth認証の都合でClaude側から自動操作できないため未着手のまま。
+同日4つ目のセッション。ユーザーから「順番に進めてください」との指示を受け、「## 10.」の積み残しリストのうち、自分で完結できる項目（①push、③施策マスタ有効/無効管理画面、⑤ダッシュボードへの予算・消化率表示統合）を順に実施・コミット・push（`f7e076f`）。その後ユーザーが②・④の実機確認を実施し、「施策の有効/無効管理パネルは操作しにくい」とのフィードバックを受けて、施策マスタ管理を独立ページに分離する追加作業を同じセッション内で実施した。
 
 **このセッションで完了した作業**：
 
 1. **①push**：前セッション（3セッション目）のコミット（`ab5044e`）を`origin/main`にpush済み。
-2. **③施策マスタ有効/無効管理画面**（improvement.md §3-3）：
-   - `/agency/clients/[id]/campaigns/actions.ts`に`setDefaultChannelEnabled`（デフォルト17施策、`client_channel_settings`をupsert）・`setCustomChannelEnabled`（クライアント固有施策、`campaign_channels.enabled`を更新）を追加。
-   - `page.tsx`に「施策の有効/無効管理」パネルを新設し、デフォルト・クライアント固有すべての施策を一覧表示、状態（有効/無効）とトグルボタンを配置。既存の「施策マスタ管理（クライアント固有）」パネル（追加フォーム）はそのまま維持。
-   - 判定ロジック（`client_id`が非nullなら`campaign_channels.enabled`、nullなら`client_channel_settings`の上書き、行が無ければ有効扱い）を`src/lib/campaigns/channelVisibility.ts`（新規、DBアクセス無しの純粋関数）に共通化し、3箇所で共有：施策一覧（`campaigns/page.tsx`の入力対象フィルタ）・ダッシュボード/レポートのチャネル別内訳（`loadClientDataset.ts`）・目標/予算のチャネル別計画（`targets/visibleAdChannels.ts`、既存実装をこの共通関数を使うようリファクタ）。
+2. **③施策マスタ有効/無効管理の判定ロジック**（improvement.md §3-3）：`/agency/clients/[id]/campaigns/actions.ts`に`setDefaultChannelEnabled`（デフォルト17施策、`client_channel_settings`をupsert）・`setCustomChannelEnabled`（クライアント固有施策、`campaign_channels.enabled`を更新）を追加。判定ロジック（`client_id`が非nullなら`campaign_channels.enabled`、nullなら`client_channel_settings`の上書き、行が無ければ有効扱い）は`src/lib/campaigns/channelVisibility.ts`（新規、DBアクセス無しの純粋関数）に共通化し、3箇所で共有：施策一覧（`campaigns/page.tsx`の入力対象フィルタ）・ダッシュボード/レポートのチャネル別内訳（`loadClientDataset.ts`）・目標/予算のチャネル別計画（`targets/visibleAdChannels.ts`、既存実装をこの共通関数を使うようリファクタ）。
 3. **⑤ダッシュボードへの予算・消化率表示統合**（improvement.md §9-1「方針として維持」だった部分）：
    - `src/lib/metrics/aggregate.ts`：`sumCampaignTargetLeads`の内部実装を汎用化（`sumCampaignTargetsField`）し、`sumCampaignTargetBudget`（予算のロールアップ）を追加。`buildChannelBreakdown`に`campaignTargets`（省略可、デフォルト`[]`）引数を追加し、チャネルごとの予算（拠点別＋全社共通の自動合算）を`budget`フィールドとして返すようにした。新規`appendBudgetRow`（`buildTargetVsActual`の結果に「予算消化（広告施策）」行を追加、実績は広告施策の費用合計・目標は予算ロールアップ）。
    - `ChannelBreakdownRow`型（`lib/mock/types.ts`）に`budget: number | null`を追加。モック側（`lib/mock/aggregate.ts`、demo用クライアント"1"/"2"）は予算の概念が無いため常に`null`を返すのみで、モック実装自体は変更していない。
    - `src/components/dashboard/ChannelBreakdownTable.tsx`：「予算」「消化率」列を追加（消化率＝費用÷予算、`spec §4.2`のCPL算出と同じ「片方が0/未入力なら"-"」ルール）。`RealDashboard.tsx`・`generateReport.ts`双方を新しいシグネチャ・`appendBudgetRow`呼び出しに追従させた。`ReportsView.tsx`・`RealReports.tsx`は同じコンポーネントを再利用しているため変更不要（自動的に反映）。
    - `aggregate.test.ts`に`sumCampaignTargetBudget`・`appendBudgetRow`・`buildChannelBreakdown`の予算ロールアップのテストを追加（33件全テストパス、3セッション目の29件から+4）。
-   - 検証：`npx tsc --noEmit`・`npm run lint`・`npm run test`・`npm run build`すべて成功。
+   - 検証：`npx tsc --noEmit`・`npm run lint`・`npm run test`・`npm run build`すべて成功。ここまでを`git commit`（`f7e076f`）・`git push`済み。
+4. **②・④ブラウザ実機確認**：ユーザー本人が`npm run dev`でクリックスルー確認を実施。**「施策の有効/無効管理」パネルの操作性が非常に悪い**とのフィードバック（`/agency/clients/[id]/campaigns`という日常入力ページに低頻度の設定操作を直接埋め込んだことが原因）。
+5. **③・§3-4：施策マスタ管理を独立ページに分離**（improvement.md §3-4、ユーザー指摘を受けた追加対応）：
+   - 新規`/agency/clients/[id]/campaigns/channels/page.tsx`（「施策マスタ」画面）を作成し、`/agency/clients/[id]/campaigns`から次の3つを移設：①広告アカウント接続状況（`RealAdConnections`）、②施策の有効/無効管理パネル、③施策マスタ管理（クライアント固有、一覧＋追加フォーム）。
+   - `/agency/clients/[id]/campaigns`側は`PageHeader`の`actions`スロットに「施策マスタ管理 →」リンクを追加するのみに簡素化（広告接続・有効無効トグル・追加フォームは撤去、日常入力に不要な低頻度操作を排除）。新ページ側には「← 施策データ入力に戻る」の戻りリンクを設置。
+   - `setDefaultChannelEnabled`・`setCustomChannelEnabled`・`addCustomChannel`（`campaigns/actions.ts`）の`revalidatePath`を、`/campaigns`と`/campaigns/channels`の両方に対象を広げ、新ページ・日常入力ページ両方の表示が最新化されるようにした。
+   - 検証：`npx tsc --noEmit`・`npm run lint`・`npm run test`（33件）・`npm run build`すべて成功（`/agency/clients/[id]/campaigns/channels`がビルド出力に追加されたことを確認）。**このステップ（5.）はまだコミットしていない。**
 
 **このセッションで完了していないこと（次回に持ち越し）**：
 
-- ②・④のブラウザ実機確認（`/agency/clients/[id]/targets`・`/agency/clients/[id]/campaigns`の施策有効/無効管理・`/agency/clients/new`の外部連携ID）。代理店側はGoogle OAuth認証のためClaude側から自動操作できず、過去のPhase 9・10確認と同様、ユーザー本人による`npm run dev`でのクリックスルー確認が必要。
+- ステップ5.（施策マスタ独立ページ化）の`git commit`・push（本セッション末時点でまだ未実施）。
+- 新設した`/agency/clients/[id]/campaigns/channels`のブラウザ実機確認（まだ実施していない、Google OAuth認証のためClaude側からは不可）。
 - 施策マスタ管理画面での「クライアント固有施策の編集」（名称・入力項目の変更）は未実装（無効化のみ対応、improvement.md §3-3にスコープ決定を明記）。
 - ダッシュボードの予算・消化率表示に対する達成率の色分け（§2-2、未達=警告色/達成=成功色）は別課題として引き続き未着手。
-- 本セッションの変更（③・⑤）はまだ`git commit`していない。
 
 **次回セッション開始時に最初に確認すること**：
 
-1. `git status -sb`で本セッションの変更が未コミットのまま残っているか確認する。
+1. `git status -sb`でステップ5.の変更が未コミットのまま残っているか確認する。
 2. コミット・push可否をユーザーに確認する。
-3. ②・④のブラウザ実機確認をユーザーに依頼する（本節参照）。
+3. 新設した施策マスタページ（`/agency/clients/[id]/campaigns/channels`）の実機確認をユーザーに依頼する。改善されたかどうかのフィードバックを受ける。
 
-**次にやること（優先順、ユーザー未確認）**：①本セッション変更のコミット・push可否の確認、②ユーザーによるブラウザ実機確認（targets 3タブ・施策有効/無効管理・外部連携ID）、③（実機確認の結果次第で）不具合修正。
+**次にやること（優先順、ユーザー未確認）**：①ステップ5.変更のコミット・push可否の確認、②ユーザーによる施策マスタページの実機確認・フィードバック、③（フィードバック次第で）追加調整。

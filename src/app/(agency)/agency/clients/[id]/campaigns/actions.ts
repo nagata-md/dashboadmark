@@ -48,6 +48,7 @@ export async function addCustomChannel(formData: FormData) {
   });
 
   revalidatePath(`/agency/clients/${clientId}/campaigns`);
+  revalidatePath(`/agency/clients/${clientId}/campaigns/channels`);
 }
 
 // spec §4.2.4：制作・クリエイティブ費用の入力（代理店のみ）。
@@ -144,6 +145,7 @@ export async function setDefaultChannelEnabled(clientId: string, channelId: stri
   );
 
   revalidatePath(`/agency/clients/${clientId}/campaigns`);
+  revalidatePath(`/agency/clients/${clientId}/campaigns/channels`);
 }
 
 // spec §4.4.1・improvement.md §3-3：クライアント固有施策（client_id非null）の無効化。
@@ -156,4 +158,5 @@ export async function setCustomChannelEnabled(clientId: string, channelId: strin
   await supabase.from("campaign_channels").update({ enabled }).eq("id", channelId).eq("client_id", clientId);
 
   revalidatePath(`/agency/clients/${clientId}/campaigns`);
+  revalidatePath(`/agency/clients/${clientId}/campaigns/channels`);
 }
