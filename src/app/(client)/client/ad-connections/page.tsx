@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AdConnectionsView } from "@/components/ads/AdConnectionsView";
 import { RealAdConnections } from "@/components/ads/RealAdConnections";
-import { getClient, CURRENT_CLIENT_ID } from "@/lib/mock/data";
+import { getClient } from "@/lib/mock/data";
 import { requireClientUser } from "@/lib/auth/requireClientUser";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -28,17 +28,20 @@ export default async function ClientAdConnectionsPage({
   const errorMessage = error ? ERROR_MESSAGES[error] : undefined;
   const successMessage = success ? SUCCESS_MESSAGES[success] : undefined;
 
-  // Phase 1〜3で確認済みのモッククライアント（CURRENT_CLIENT_ID）はモック実装のまま維持する。
-  if (getClient(CURRENT_CLIENT_ID)) {
+  // 2026-08-27修正：ログイン中の住宅会社ユーザーの client_id ではなく固定のモック定数
+  // （CURRENT_CLIENT_ID="1"）を先に判定していたため、実クライアントでログインしても
+  // 常にモック画面が表示されてしまう不具合があった（Phase 6実装時に混入・テスト改善フェーズで発見）。
+  // 認証を先に行い、実際にログインしているユーザーのclient_idでモック/実データを判定する。
+  const clientUser = await requireClientUser();
+
+  if (getClient(clientUser.client_id)) {
     return (
       <>
         <PageHeader title="広告アカウント接続" eyebrow="AD CONNECTIONS" />
-        <AdConnectionsView clientId={CURRENT_CLIENT_ID} />
+        <AdConnectionsView clientId={clientUser.client_id} />
       </>
     );
   }
-
-  const clientUser = await requireClientUser();
 
   return (
     <>

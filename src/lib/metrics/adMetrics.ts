@@ -24,3 +24,29 @@ export function formatYen(value: number | null) {
     ? "-"
     : `¥${Math.round(value).toLocaleString("ja-JP")}`;
 }
+
+export function formatNum(value: number | null) {
+  return value === null ? "-" : value.toLocaleString("ja-JP");
+}
+
+export function formatMonthLabel(periodStart: string) {
+  const [y, m] = periodStart.split("-");
+  return `${y}年${Number(m)}月`;
+}
+
+export interface Comparison {
+  base: number;
+  compare: number;
+  diff: number;
+  pct: number | null;
+}
+
+/** 基準期間・比較期間の差分・増減率（spec §4.5 期間比較）。比較対象が0の場合は増減率を算出不可とする */
+export function compare(base: number, compareValue: number): Comparison {
+  return {
+    base,
+    compare: compareValue,
+    diff: base - compareValue,
+    pct: compareValue === 0 ? null : (base - compareValue) / compareValue,
+  };
+}

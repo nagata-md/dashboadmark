@@ -19,6 +19,20 @@ import type {
   TargetVsActualRow,
 } from "./types";
 import { KPI_LABELS } from "@/lib/targets/kpiLabels";
+import {
+  compare,
+  formatMonthLabel,
+  formatNum,
+  formatYen,
+  formatPercent as formatPct,
+  type Comparison,
+} from "@/lib/metrics/adMetrics";
+
+// formatYen/formatNum/formatPct/formatMonthLabel/compare は実データ集計（lib/metrics/adMetrics.ts）
+// と共有する純粋関数のため、そちらを正としてここでは再エクスポートするのみ（実装の重複を避ける）。
+// 既存の呼び出し元（ChannelBreakdownTable・PeriodCompare・TrendChart等）はこのモジュールから
+// importしたままで良いよう、名前はそのまま維持する。
+export { compare, formatMonthLabel, formatNum, formatYen, formatPct, type Comparison };
 
 export function ctr(clicks: number | null, impressions: number | null): number | null {
   if (!impressions || clicks == null) return null;
@@ -167,40 +181,6 @@ export function buildTrend(
     const stages = buildFunnelStages(campaignRows, funnelRows, periodStart);
     return { periodStart, leads: stages.leads, visits: stages.visits, contracts: stages.contracts };
   });
-}
-
-export interface Comparison {
-  base: number;
-  compare: number;
-  diff: number;
-  pct: number | null;
-}
-
-/** 基準期間・比較期間の差分・増減率（§4.5 期間比較）。比較対象が0の場合は増減率を算出不可とする */
-export function compare(base: number, compareValue: number): Comparison {
-  return {
-    base,
-    compare: compareValue,
-    diff: base - compareValue,
-    pct: compareValue === 0 ? null : (base - compareValue) / compareValue,
-  };
-}
-
-export function formatYen(v: number | null): string {
-  return v == null ? "-" : `¥${Math.round(v).toLocaleString()}`;
-}
-
-export function formatNum(v: number | null): string {
-  return v == null ? "-" : v.toLocaleString();
-}
-
-export function formatPct(v: number | null): string {
-  return v == null ? "-" : `${(v * 100).toFixed(1)}%`;
-}
-
-export function formatMonthLabel(periodStart: string): string {
-  const [y, m] = periodStart.split("-");
-  return `${y}年${Number(m)}月`;
 }
 
 export { KPI_LABELS };

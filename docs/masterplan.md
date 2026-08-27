@@ -7,9 +7,9 @@
 
 ---
 
-## 実装状況（2026-08-24 更新）
+## 実装状況（2026-08-27 更新）
 
-> 2026-08-24時点の到達点・積み残し・留意点は「▶ 次回のアクション」直後の「2026-08-24: SMTP設定完了・招待〜ログインの実機確認」を参照。それ以前は2026-08-01・2026-08-20時点の記録（履歴として保持）。
+> 2026-08-27時点の到達点・積み残し・留意点は本書末尾「## 8. 2026-08-27 セッション終了メモ」を参照（次回はここから読む）。それ以前は2026-08-01・2026-08-20・2026-08-24時点の記録（履歴として保持）。
 
 Phase 0 完了。Phase 1 進行中（共通レイアウト・UIコンポーネントが完了、残りはPhase 4以降で実画面ができ次第 `dev-preview` を削除するのみ）。
 
@@ -38,8 +38,8 @@ Phase 2（データ層）も完了。Supabaseは新しいAPIキー体系（Publi
 | 6 広告API連携（フェーズドロールアウト） | 🟡 進行中（2026-08-24、共通基盤完了・各媒体APIコード呼び出しはプレースホルダー） |
 | 7 来場〜契約データ入力（住宅会社側） | ✅ 完了（2026-08-24） |
 | 8 目標設定・予実管理 | ✅ 完了（2026-08-24、目標設定画面のみ。予実対比の表示自体はPhase 9） |
-| 9 ダッシュボード | 未着手 |
-| 10 レポート機能 | 未着手 |
+| 9 ダッシュボード | ✅ 完了（2026-08-27、実データ集計エンジン・住宅会社側で実機確認済み。代理店側はGoogle OAuthのため未実機確認） |
+| 10 レポート機能 | 🟡 実質完了（2026-08-27、レポート生成・保存・閲覧は実装・実機確認済み。PDFは従来通りブラウザ印刷で代替、サーバーサイド生成（E5）は未着手） |
 | 11 仕上げ | 未着手 |
 
 ### 2026-08-10: 実装前のUIモックアップ確認（Phase 3着手前の割り込み作業）
@@ -216,6 +216,38 @@ spec §4.1「追加のユーザー招待は、代理店・住宅会社いずれ�
 - **ユーザーからのフィードバックで追加対応した2点**：
   1. 招待成功後に画面が一覧に戻るだけで「成功したのか分かりにくい」という指摘を受け、`/client/users`（招待後）・`/agency/clients/new`→`/agency/clients`（クライアント登録後）の両方に緑色の成功メッセージ（`success=`クエリパラメータ経由）を追加。
   2. 「クライアントのユーザー管理には削除機能が必要」という指摘を受け、`src/lib/auth/removeClientUser.ts`（`inviteClientUser.ts`と同じ`callerType`認可方式）と`/client/users`の削除ボタンを追加。**自分自身の削除は禁止**（住宅会社側の最後の担当者が自分を消してログインできなくなる事故を防ぐため）。削除は`client_users`行の削除＋`auth.admin.deleteUser`によるSupabase Auth側アカウントの完全削除の両方を行う（削除後、同じメールアドレスへの再招待が可能）。使い捨てテストデータで、自己削除禁止・他クライアントからの削除試行の拒否・正常な削除・削除済みユーザーへの再削除（`not_found`）を確認済み。`/agency/users`側には削除機能を追加していない（一覧表示のみの方針は変更なし、Google自動プロビジョニングのため）。
+
+### 2026-08-27: Phase 9（ダッシュボード）・Phase 10（レポート）実データ実装、vitest導入
+
+ユーザーから「Phase 9着手、Phase 10（レポート）も含める、システム全体像が可視化された状態でテスト改善フェーズを設ける」という指示を受けて着手。着手前にEnterPlanModeで実装方針を整理し、ユーザーに3点を確認して確定：①ダッシュボードの対象期間は月次のみ（目標設定が月次のみのため予実対比と整合させる）、②実装範囲はダッシュボード＋レポートの両方、③テスト改善フェーズには自動テスト（vitest）導入を含める。
+
+**集計エンジン（`src/lib/metrics/`、新規）**：spec §6「週次データを月次実績として集計する場合、月をまたぐ週は日数比率で按分する」というルールを、任意の問い合わせ範囲（ダッシュボードの対象月・レポートの月次/週次/カスタム期間）に対して一般化した「範囲ベースの日数按分エンジン」として実装し、ダッシュボードとレポートで集計ロジックを共用した。
+
+- `dateRange.ts`：`rowInterval`（period_type・period_startから行の期間区間を導出）・`prorateWeight`（範囲との重なり日数比率）等。UTC日付（`Date.UTC`ベース）で計算しタイムゾーンのズレを回避。
+- `aggregate.ts`：`buildChannelBreakdown`・`buildFunnelStages`・`buildLocationBreakdown`・`buildTargetVsActual`・`buildTrend`・`sumProductionCost`。フロー指標（cost/leads/visits等）は日数按分合算、ストック指標（followers）は範囲内で最新のperiod_startを採用（合算しない）、比率指標（inflow_rate）は範囲内の値をそのまま列挙（合算しない）——spec §6の3分類をそのまま実装。
+- `loadClientDataset.ts`：ダッシュボード・レポート生成が共有するクライアント全期間データ取得（RLSスコープの`createClient()`、他の実データ画面と同じ規約）。
+- 目標（`targets`）は月次固定のため、レポートで週次/カスタム範囲を選んだ場合は目標値も同じ日数按分ロジックで近似合算する（spec に明記の無い部分の拡張、実装コメントに明記）。
+- CTR/CPC/CPLの算出・フォーマッタ（`formatYen`等）はPhase 6で作成済みの`src/lib/metrics/adMetrics.ts`を拡張して集約し、`src/lib/mock/aggregate.ts`側は対応する関数をそのまま再エクスポートするだけに変更した（既存の呼び出し元＝`ChannelBreakdownTable`等は一切変更不要、実装の重複を解消しつつ既存importを壊さない）。
+
+**ダッシュボード・レポート（実データ）**：`campaigns/page.tsx`と同じハイブリッド分岐（モッククライアントは従来のDashboardView/ReportsView、実クライアントは新規コンポーネント）を4画面（`/agency/clients/[id]/{dashboard,reports}`・`/client/{dashboard,reports}`）に追加。
+
+- `src/components/dashboard/RealDashboard.tsx`：期間・比較期間の選択はcampaigns/page.tsxと同じ`<form method="get">`パターン（クライアントコンポーネント化しない）。既存の表示コンポーネント（FunnelChart・TrendChart・ChannelBreakdownTable・LocationBreakdown・TargetVsActual・PeriodCompare）は`@/lib/mock/types`の型のみに依存する純粋な表示コンポーネントだったため、実データでもそのまま再利用できた。
+- `src/lib/reports/{period,generateReport}.ts` + `src/components/reports/RealReports.tsx`：レポート生成（期間種別・比較期間の指定）→ `reports`テーブル（Phase 2で作成済みのスキーマ・RLSをそのまま利用）にスナップショット保存 → 一覧・詳細閲覧。PDF出力は従来通りブラウザ印刷（`window.print()`、`PrintButton.tsx`にクライアントコンポーネントとして切り出し）で代替し、E5（puppeteer-core本実装）は今回のスコープ外とした（次フェーズ以降）。
+
+**実機で発見・修正したバグ**：`/client/ad-connections/page.tsx`（Phase 6実装）が、ログイン中の住宅会社ユーザーの`client_id`ではなく固定のモック定数`CURRENT_CLIENT_ID`（`"1"`）を先に判定していたため、実クライアントでログインしても常にモックの広告接続画面が表示され、実データ（`RealAdConnections`）に到達できない不具合を発見・修正した。今回新規実装したダッシュボード・レポートの実装パターン（`requireClientUser()`を先に呼び、ログイン中ユーザーの`client_id`で判定）と同じ形に揃えた。
+
+**自動テスト（vitest、新規導入）**：`vitest`をdevDependencyに追加、`vitest.config.ts`（`@`→`./src`のエイリアス）、`package.json`に`"test": "vitest run"`を追加。`src/lib/metrics/{dateRange,aggregate}.test.ts`にDB接続不要な純粋関数のユニットテストを26件作成（spec §6の日数按分の具体例「7日中3日が4月・4日が5月」の検証、拠点別内訳の合計＝会社全体合計と一致する不変条件、ストック/比率指標の非合算挙動等）。全件成功。Playwright等のブラウザ自動E2Eは、Google OAuthログインの自動化が困難・テストユーザーseed機構が未整備のため今回は見送った（次フェーズ以降の検討事項）。
+
+**実機検証（テスト改善フェーズ）**：ブラウザ自動化ツール（chromium-cli等）がこの環境に無かったため、`puppeteer-core`＋システムのGoogle Chromeを使った使い捨ての検証スクリプト（プロジェクトの`devDependencies`には追加せず、スクラッチ領域に一時インストール）で、実際のログインフォーム（メール+パスワード）から住宅会社側の一連の画面を操作して確認した。
+
+- 実クライアント「合同会社マーケティングデパートメント」に対し、使い捨てのテストユーザー（`qa-phase9-check@example.com`）と使い捨ての施策実績・来場〜契約実績・目標・制作費用（2026年7月・8月分、週またぎの週次施策データも含む）をService Role経由で投入。
+- `/client/dashboard`：ファネル図（反響27=Google25+Meta按分後2）・チャネル別内訳（CTR/CPC/CPL・followers最新値採用・inflow_rate非合算列挙）・期間推移（直近6ヶ月）・予実対比・期間比較（基準/比較/差分/増減率）のすべてが手計算と一致することを確認。
+- `/client/reports`：レポート生成→一覧反映→詳細表示がダッシュボードと同じ数値になることを確認。
+- スクリーンショットでレイアウト崩れが無いことも確認。`console --errors`相当（`page.on("console"/"pageerror")`）でエラー無し。
+- 検証後、投入した全テストデータ（campaign_metrics 6件・funnel_metrics 2件・targets 4件・production_costs 2件・reports 1件・テストユーザー）を削除し、投入前と同じ0件の状態に戻したことを確認済み。
+- **代理店側（`/agency/clients/[id]/dashboard`・`reports`）は、Google OAuthログインの自動化ができないため今回は実機確認できていない。** コード上は住宅会社側と全く同じ`lib/metrics/`集計エンジン・ハイブリッド分岐パターンを使っているため大きな差異は無い想定だが、次回ユーザー自身に一度クリックスルーしてもらうことを推奨する。
+
+**検証コマンド**：`npx tsc --noEmit`・`npm run lint`・`npm run build`（全ルート生成確認、`/agency/clients/[id]/{dashboard,reports}`・`/client/{dashboard,reports}`とも一覧に出現）・`npm run test`（26件成功）、いずれも成功。
 
 ---
 
@@ -504,3 +536,24 @@ vercel.json         # Cron設定（E4）
 - Phase 8（目標設定）：`/agency/clients/[id]/targets`を新規実装。
 
 **次にやること（優先順）**：①未コミット分のコミット、②Phase 6〜8のブラウザ実機確認、③Phase 9（ダッシュボード）着手——規模が大きいため、着手前に実装方針をユーザーと相談してから始めること。
+
+---
+
+## 8. 2026-08-27 セッション終了メモ（次回はここから読む）
+
+**このセッションで完了した作業**：Phase 3〜8一式を`git commit`（2026-08-10以降未コミットだった分）。Phase 9（ダッシュボード）・Phase 10（レポート）を実データで実装し、住宅会社側を実機（chromium相当のヘッドレスブラウザ＋実ログイン）で確認済み。vitest導入・ユニットテスト26件追加。詳細は本書「### 2026-08-27: Phase 9・10...」の節を参照。
+
+**次回セッション開始時に最初に確認すること**：
+
+1. **代理店側ダッシュボード・レポート（`/agency/clients/[id]/{dashboard,reports}`）は未実機確認。** Google OAuthログインが自動化できないため、このセッションでは住宅会社側のみ実機確認した。次回、代理店アカウント（`main@marketingdept-llc.com`）で一度クリックスルーして見た目・数値を確認することを推奨する（コードは住宅会社側と同じ`lib/metrics/`集計エンジン・ハイブリッド分岐パターンを使っているため大きな差異は無い想定だが未確認）。
+2. **開発サーバーはこのセッション終了時に停止済み。** 次回`npm run dev`で再起動すること。
+3. 実データベースは本セッション終了時点で前回（2026-08-24）と同じ状態（`clients`1件・`client_users`3件・`agency_users`1件、`campaign_metrics`・`funnel_metrics`・`targets`・`production_costs`・`reports`・`ad_connections`はいずれも0件）。今回投入した検証用データ・使い捨てユーザーはすべて削除済み、永続的な変更なし。
+4. `git status`：本セッションの変更（Phase 9・10・vitest導入）はまだコミットしていない。次回作業開始前にコミットすることを推奨する（Phase 3〜8のコミット漏れが2週間以上放置されていた前回の反省を踏まえ、早めにコミットする習慣をつけること）。
+
+**未着手の機能（次に取り組むとすれば）**：
+- Phase 6は共通基盤のみ完了、各媒体の実API実装・審査申請は未着手（D1、外部プロセスと並行）。
+- レポートPDFのサーバーサイド生成（E5: puppeteer-core + @sparticuz/chromium）。現状はブラウザ印刷（`window.print()`）で代替。
+- Playwright等によるブラウザ自動E2Eテスト（今回は見送り、vitestによる集計ロジックのユニットテストで代替）。
+- Phase 11（仕上げ）は未着手。
+
+**次にやること（優先順）**：①本セッション分のコミット、②代理店側ダッシュボード・レポートの実機確認（ユーザー自身によるGoogleログインが必要）、③Phase 11（仕上げ）または残課題（PDF本実装・広告API本実装）の優先順位をユーザーと相談。
