@@ -7,18 +7,14 @@ import { FormRow } from "@/components/ui/FormRow";
 import { Button } from "@/components/ui/Button";
 import { CampaignsView } from "@/components/campaigns/CampaignsView";
 import { PeriodTypeFields } from "@/components/forms/PeriodTypeFields";
+import { CampaignEntryTable, type CampaignEntryRow } from "@/components/campaigns/CampaignEntryTable";
 import { getClient } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
 import { isChannelVisible } from "@/lib/campaigns/channelVisibility";
 import { resolvePeriod, type PeriodParams } from "@/lib/campaigns/period";
-import {
-  calcCpc,
-  calcCpl,
-  calcCtr,
-  formatPercent,
-  formatYen,
-} from "@/lib/metrics/adMetrics";
-import { addProductionCost, deleteProductionCost, revertToApiValue } from "./actions";
+import type { FieldKey } from "@/lib/campaigns/fieldKeys";
+import { formatYen } from "@/lib/metrics/adMetrics";
+import { addProductionCost, deleteProductionCost, revertToApiValue, saveCampaignMetric } from "./actions";
 
 export const metadata = {
   title: "施策データ | 住宅マーケティング数値ダッシュボード（仮称）",
@@ -26,6 +22,7 @@ export const metadata = {
 
 type SearchParams = PeriodParams & {
   locationId?: string;
+  success?: string;
 };
 
 // spec §4.2.1（施策データ手動入力）・§4.2.3（クライアント固有施策）・
@@ -72,7 +69,7 @@ export default async function AgencyCampaignsPage({
   // `/agency/clients/[id]/campaigns/channels`（施策マスタ）で行う（improvement.md §3-4）。
   const { data: channels } = await supabase
     .from("campaign_channels")
-    .select("id, name, type, client_id, enabled")
+    .select("id, name, type, client_id, enabled, enabled_fields, required_fields")
     .or(`client_id.is.null,client_id.eq.${clientId}`)
     .order("sort_order", { ascending: true });
 
@@ -94,6 +91,10 @@ export default async function AgencyCampaignsPage({
       cost: number | null;
       impressions: number | null;
       clicks: number | null;
+      followers: number | null;
+      posts: number | null;
+      views: number | null;
+      inflow_rate: number | null;
       leads: number | null;
       source: string;
       manually_overridden: boolean;
@@ -104,7 +105,9 @@ export default async function AgencyCampaignsPage({
   if (period) {
     let metricsQuery = supabase
       .from("campaign_metrics")
-      .select("channel_id, cost, impressions, clicks, leads, source, manually_overridden")
+      .select(
+        "channel_id, cost, impressions, clicks, followers, posts, views, inflow_rate, leads, source, manually_overridden",
+      )
       .eq("client_id", clientId)
       .eq("period_type", period.periodType)
       .eq("period_start", period.periodStart);
@@ -132,13 +135,32 @@ export default async function AgencyCampaignsPage({
     0,
   );
 
-  const periodQuery = period
-    ? `periodType=${period.periodType}&${
-        period.periodType === "monthly"
-          ? `periodMonth=${sp.periodMonth}`
-          : `periodWeekStart=${sp.periodWeekStart}`
-      }&locationId=${locationId ?? ""}`
-    : "";
+  const entryRows: CampaignEntryRow[] = allChannelsWithState
+    .filter((c) => c.isEnabled)
+    .map((channel) => {
+      const m = metricsByChannel.get(channel.id);
+      return {
+        channelId: channel.id,
+        channelName: channel.name,
+        isAd: channel.type === "ad",
+        enabledFields: (channel.enabled_fields ?? []) as FieldKey[],
+        requiredFields: (channel.required_fields ?? []) as FieldKey[],
+        metric: m
+          ? {
+              cost: m.cost,
+              impressions: m.impressions,
+              clicks: m.clicks,
+              followers: m.followers,
+              posts: m.posts,
+              views: m.views,
+              inflow_rate: m.inflow_rate,
+              leads: m.leads,
+            }
+          : null,
+        revertAction:
+          m?.source === "api" && m.manually_overridden ? revertToApiValue.bind(null, clientId, channel.id) : null,
+      };
+    });
 
   return (
     <>
@@ -151,6 +173,12 @@ export default async function AgencyCampaignsPage({
           </Link>
         }
       />
+
+      {sp.success === "saved" && (
+        <p className="mb-4 rounded-control bg-success-tint px-3 py-2 text-xs text-success">
+          保存しました。
+        </p>
+      )}
 
       <Panel title="期間・拠点を選択" className="mb-4 max-w-[560px]">
         <form method="get" className="flex flex-wrap items-end gap-4">
@@ -178,57 +206,15 @@ export default async function AgencyCampaignsPage({
       {period ? (
         <>
           <Panel title="施策一覧" className="mb-4">
-            <Table>
-              <thead>
-                <Tr>
-                  <Th>施策</Th>
-                  <Th>費用</Th>
-                  <Th>反響数</Th>
-                  <Th>CTR</Th>
-                  <Th>CPC</Th>
-                  <Th>CPL</Th>
-                  <Th />
-                </Tr>
-              </thead>
-              <tbody>
-                {allChannelsWithState.filter((c) => c.isEnabled).map((channel) => {
-                  const m = metricsByChannel.get(channel.id);
-                  const isAd = channel.type === "ad";
-                  return (
-                    <Tr key={channel.id}>
-                      <Td className="font-semibold text-navy">{channel.name}</Td>
-                      <Td>{m ? formatYen(m.cost) : "-"}</Td>
-                      <Td>{m?.leads ?? "-"}</Td>
-                      <Td>{isAd ? formatPercent(calcCtr(m?.clicks ?? null, m?.impressions ?? null)) : "-"}</Td>
-                      <Td>{isAd ? formatYen(calcCpc(m?.cost ?? null, m?.clicks ?? null)) : "-"}</Td>
-                      <Td>{isAd ? formatYen(calcCpl(m?.cost ?? null, m?.leads ?? null)) : "-"}</Td>
-                      <Td>
-                        <div className="flex items-center gap-3">
-                          <Link
-                            href={`/agency/clients/${clientId}/campaigns/entry?channelId=${channel.id}&${periodQuery}`}
-                            className="text-accent hover:underline"
-                          >
-                            {m ? "編集" : "入力"}
-                          </Link>
-                          {m?.source === "api" && m.manually_overridden && (
-                            <form
-                              action={revertToApiValue.bind(null, clientId, channel.id)}
-                            >
-                              <button
-                                type="submit"
-                                className="text-xs text-gray-500 hover:underline"
-                              >
-                                APIの値に戻す
-                              </button>
-                            </form>
-                          )}
-                        </div>
-                      </Td>
-                    </Tr>
-                  );
-                })}
-              </tbody>
-            </Table>
+            <CampaignEntryTable
+              rows={entryRows}
+              saveAction={saveCampaignMetric}
+              clientId={clientId}
+              locationId={locationId}
+              periodType={period.periodType}
+              periodMonth={sp.periodMonth}
+              periodWeekStart={sp.periodWeekStart}
+            />
           </Panel>
 
           <Panel title="制作・クリエイティブ費用" className="mb-4 max-w-[560px]">
