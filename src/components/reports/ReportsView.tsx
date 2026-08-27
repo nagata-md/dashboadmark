@@ -120,7 +120,7 @@ export function ReportsView({ clientId, generatedByType }: { clientId: string; g
 
   return (
     <div className="flex flex-col gap-5">
-      <Panel title="レポート生成">
+      <Panel title="レポート生成" className="print:hidden">
         <form onSubmit={generate} className="flex flex-col gap-3">
           <div className="flex flex-wrap items-end gap-3">
             <FormRow label="期間種別">
@@ -154,7 +154,7 @@ export function ReportsView({ clientId, generatedByType }: { clientId: string; g
         </form>
       </Panel>
 
-      <Panel title="レポート一覧">
+      <Panel title="レポート一覧" className="print:hidden">
         <Table>
           <thead>
             <Tr>
@@ -193,8 +193,8 @@ export function ReportsView({ clientId, generatedByType }: { clientId: string; g
       </Panel>
 
       {selected && (
-        <Panel title="レポート詳細" className="print:shadow-none">
-          <p className="mb-4 rounded border border-gray-300 bg-gray-050 px-3 py-2 text-xs text-gray-700">
+        <Panel title="レポート詳細" className="print:rounded-none print:border-0 print:p-0 print:shadow-none">
+          <p className="mb-4 rounded border border-gray-300 bg-gray-050 px-3 py-2 text-xs text-gray-700 print:border-0 print:bg-white print:px-0">
             これは {new Date(selected.generatedAt).toLocaleString("ja-JP")} 時点のスナップショットです。生成後に元データが変更されても、この内容は変わりません（spec §4.6）。
           </p>
 
@@ -259,7 +259,7 @@ export function ReportsView({ clientId, generatedByType }: { clientId: string; g
             )}
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 print:hidden">
             <Button type="button" onClick={() => window.print()}>
               PDFダウンロード
             </Button>

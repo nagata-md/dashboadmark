@@ -62,19 +62,19 @@ export async function RealReports({
   return (
     <div className="flex flex-col gap-5">
       {searchParams.success === "generated" && (
-        <p className="rounded-control bg-success-tint px-3 py-2 text-xs text-success">レポートを生成しました。</p>
+        <p className="rounded-control bg-success-tint px-3 py-2 text-xs text-success print:hidden">レポートを生成しました。</p>
       )}
       {searchParams.error && (
-        <p className="rounded-control bg-danger-tint px-3 py-2 text-xs text-danger">
+        <p className="rounded-control bg-danger-tint px-3 py-2 text-xs text-danger print:hidden">
           {REPORT_ERROR_MESSAGES[searchParams.error] ?? "エラーが発生しました。"}
         </p>
       )}
 
-      <Panel title="レポート生成">
+      <Panel title="レポート生成" className="print:hidden">
         <ReportGenerateForm generateAction={generateAction} defaultMonth={todayMonthKey()} />
       </Panel>
 
-      <Panel title="レポート一覧">
+      <Panel title="レポート一覧" className="print:hidden">
         <Table>
           <thead>
             <Tr>
@@ -117,8 +117,8 @@ export async function RealReports({
       </Panel>
 
       {selected && (
-        <Panel title="レポート詳細" className="print:shadow-none">
-          <p className="mb-4 rounded border border-gray-300 bg-gray-050 px-3 py-2 text-xs text-gray-700">
+        <Panel title="レポート詳細" className="print:rounded-none print:border-0 print:p-0 print:shadow-none">
+          <p className="mb-4 rounded border border-gray-300 bg-gray-050 px-3 py-2 text-xs text-gray-700 print:border-0 print:bg-white print:px-0">
             これは {new Date(selected.generated_at).toLocaleString("ja-JP")}{" "}
             時点のスナップショットです。生成後に元データが変更されても、この内容は変わりません（spec §4.6）。
           </p>
@@ -184,7 +184,7 @@ export async function RealReports({
             )}
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 print:hidden">
             <PrintButton />
           </div>
         </Panel>

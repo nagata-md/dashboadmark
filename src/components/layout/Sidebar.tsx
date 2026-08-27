@@ -40,7 +40,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-full flex-col bg-navy p-3.5 text-white md:w-60 md:flex-shrink-0 md:p-6">
+    <aside className="flex w-full flex-col bg-navy p-3.5 text-white md:w-60 md:flex-shrink-0 md:p-6 print:hidden">
       <div className="flex items-start justify-between">
         <div>
           <div className="font-archivo text-lg font-bold tracking-[0.06em]">

@@ -18,7 +18,7 @@ export function PageHeader({ title, eyebrow, actions }: PageHeaderProps) {
         </span>
       )}
       {actions && (
-        <div className="ml-auto flex flex-wrap items-center gap-2 max-md:w-full">
+        <div className="ml-auto flex flex-wrap items-center gap-2 max-md:w-full print:hidden">
           {actions}
         </div>
       )}
