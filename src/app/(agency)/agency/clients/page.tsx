@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Table, Tr, Th, Td } from "@/components/ui/Table";
 import { requireAgencyUser } from "@/lib/auth/requireAgencyUser";
 import { createClient } from "@/lib/supabase/server";
+import { updateExternalClientId } from "./actions";
 
 export const metadata = {
   title: "クライアント一覧 | 住宅マーケティング数値ダッシュボード（仮称）",
@@ -17,22 +18,30 @@ const NAV_ITEMS: SidebarNavItem[] = [
   { href: "/agency/users", label: "ユーザー管理" },
 ];
 
+const ERROR_MESSAGES: Record<string, string> = {
+  external_client_id_duplicate:
+    "この外部連携IDは既に他のクライアントで使用されています。別の値を入力してください。",
+  external_client_id_update_failed: "外部連携IDの更新に失敗しました。時間をおいて再度お試しください。",
+};
+
 // spec §4.1：代理店担当者が担当クライアントを一覧・新規登録する画面（Phase 4）。
 export default async function AgencyClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ success?: string; error?: string }>;
 }) {
   const agencyUser = await requireAgencyUser();
-  const { success } = await searchParams;
+  const { success, error } = await searchParams;
   const showSuccessMessage = success === "client_created";
+  const externalClientIdUpdated = success === "external_client_id_updated";
+  const errorMessage = error ? ERROR_MESSAGES[error] : undefined;
 
   const supabase = await createClient();
   // clients_select の RLS（is_authorized_for_client）により、
   // 自分が割当済みのクライアントのみ返る。
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, name, created_at")
+    .select("id, name, external_client_id, created_at")
     .order("created_at", { ascending: false });
 
   return (
@@ -60,12 +69,23 @@ export default async function AgencyClientsPage({
           クライアントを登録し、招待メールを送信しました。相手が本人のメールでリンクを開き、パスワードを設定するとログインできるようになります。
         </p>
       )}
+      {externalClientIdUpdated && (
+        <p className="mb-4 rounded-control bg-success-tint px-3 py-2 text-xs text-success">
+          外部連携IDを更新しました。
+        </p>
+      )}
+      {errorMessage && (
+        <p className="mb-4 rounded-control bg-danger-tint px-3 py-2 text-xs text-danger">
+          {errorMessage}
+        </p>
+      )}
       <Panel>
         {clients && clients.length > 0 ? (
           <Table>
             <thead>
               <Tr>
                 <Th>クライアント名</Th>
+                <Th>外部連携ID</Th>
                 <Th>登録日</Th>
                 <Th />
               </Tr>
@@ -74,6 +94,23 @@ export default async function AgencyClientsPage({
               {clients.map((client) => (
                 <Tr key={client.id}>
                   <Td className="font-semibold text-navy">{client.name}</Td>
+                  <Td>
+                    <form
+                      action={updateExternalClientId.bind(null, client.id)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <input
+                        type="text"
+                        name="externalClientId"
+                        defaultValue={client.external_client_id ?? ""}
+                        placeholder="未設定"
+                        className="w-36"
+                      />
+                      <button type="submit" className="text-xs text-accent hover:underline">
+                        保存
+                      </button>
+                    </form>
+                  </Td>
                   <Td>
                     {new Date(client.created_at).toLocaleDateString("ja-JP")}
                   </Td>

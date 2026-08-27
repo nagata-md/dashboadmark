@@ -19,6 +19,7 @@ const NAV_ITEMS: SidebarNavItem[] = [
 const ERROR_MESSAGES: Record<string, string> = {
   missing_fields: "すべての項目を入力してください。",
   create_failed: "クライアントの作成に失敗しました。もう一度お試しください。",
+  external_client_id_duplicate: "この外部連携IDは既に他のクライアントで使用されています。別の値を入力してください。",
   invite_not_authorized: "権限エラーが発生しました。管理者にお問い合わせください。",
   invite_email_exists:
     "このメールアドレスはすでに登録されています。別のメールアドレスを使用してください。",
@@ -60,6 +61,12 @@ export default async function NewClientPage({
           <FormRow label="クライアント名（住宅会社名）">
             <input type="text" name="clientName" required />
           </FormRow>
+          <FormRow label="外部連携ID（任意）">
+            <input type="text" name="externalClientId" placeholder="例: 他システムの顧客IDなど" />
+          </FormRow>
+          <p className="mb-4 text-xs text-gray-500">
+            他のアプリ・システムと連携する際にこのクライアントを識別するための任意のIDです。後から一覧画面で変更できます。
+          </p>
           <FormRow label="初期担当者の氏名">
             <input type="text" name="contactName" required />
           </FormRow>

@@ -17,6 +17,8 @@ export async function createClientWithInitialUser(formData: FormData) {
   const name = String(formData.get("clientName") ?? "").trim();
   const contactName = String(formData.get("contactName") ?? "").trim();
   const contactEmail = String(formData.get("contactEmail") ?? "").trim();
+  const externalClientIdRaw = String(formData.get("externalClientId") ?? "").trim();
+  const externalClientId = externalClientIdRaw === "" ? null : externalClientIdRaw;
 
   if (!name || !contactName || !contactEmail) {
     redirect("/agency/clients/new?error=missing_fields");
@@ -31,9 +33,13 @@ export async function createClientWithInitialUser(formData: FormData) {
 
   const { error: clientError } = await supabase
     .from("clients")
-    .insert({ id: clientId, name });
+    .insert({ id: clientId, name, external_client_id: externalClientId });
 
   if (clientError) {
+    // clients_external_client_id_unique（0005）違反を専用のエラーメッセージに変換する。
+    if (clientError.code === "23505") {
+      redirect("/agency/clients/new?error=external_client_id_duplicate");
+    }
     redirect("/agency/clients/new?error=create_failed");
   }
 
