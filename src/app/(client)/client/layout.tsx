@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Sidebar, type SidebarNavItem } from "@/components/layout/Sidebar";
+import { requireClientUser } from "@/lib/auth/requireClientUser";
 
 // 住宅会社側レイアウト（spec §5 `/client/...`）。自社データに固定（クライアント切替なし）。
-// Phase 3（認証）着手前のUIモックアップのため、ここではアクセス制御は行わない。
+// 2026-08-20：認証ガードを追加（requireClientUser）。ダッシュボード等の画面本体は
+// まだlib/mock/dataのモックアップのまま（Phase 5以降で実データに置き換え予定）。
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { href: "/client/dashboard", label: "ダッシュボード" },
@@ -16,7 +18,13 @@ const NAV_ITEMS: SidebarNavItem[] = [
   { href: "/client/users", label: "ユーザー管理" },
 ];
 
-export default function ClientLayout({ children }: { children: ReactNode }) {
+export default async function ClientLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const clientUser = await requireClientUser();
+
   return (
     <AppShell
       sidebar={
@@ -24,8 +32,8 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
           logo="HOUSING DASHBOARD"
           subtitle="住宅マーケティング数値ダッシュボード"
           navItems={NAV_ITEMS}
-          userName="住宅会社担当者"
-          userEmail="client@example.com"
+          userName={clientUser.name}
+          userEmail={clientUser.email}
         />
       }
     >

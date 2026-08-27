@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export interface SidebarNavItem {
   href: string;
@@ -16,7 +17,6 @@ interface SidebarProps {
   activeHref?: string;
   userName?: string;
   userEmail?: string;
-  onLogout?: () => void;
 }
 
 export function Sidebar({
@@ -26,11 +26,18 @@ export function Sidebar({
   activeHref,
   userName,
   userEmail,
-  onLogout,
 }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const currentHref = activeHref ?? pathname;
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="flex w-full flex-col bg-navy p-3.5 text-white md:w-60 md:flex-shrink-0 md:p-6">
@@ -82,15 +89,13 @@ export function Sidebar({
             {userEmail && (
               <div className="mt-0.5 break-all text-white/55">{userEmail}</div>
             )}
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="mt-2 inline-block text-xs text-white/70 hover:underline"
-              >
-                ログアウト
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-2 inline-block text-xs text-white/70 hover:underline"
+            >
+              ログアウト
+            </button>
           </div>
         )}
       </div>

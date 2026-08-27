@@ -7,7 +7,9 @@
 
 ---
 
-## 実装状況（2026-08-01）
+## 実装状況（2026-08-24 更新）
+
+> 2026-08-24時点の到達点・積み残し・留意点は「▶ 次回のアクション」直後の「2026-08-24: SMTP設定完了・招待〜ログインの実機確認」を参照。それ以前は2026-08-01・2026-08-20時点の記録（履歴として保持）。
 
 Phase 0 完了。Phase 1 進行中（共通レイアウト・UIコンポーネントが完了、残りはPhase 4以降で実画面ができ次第 `dev-preview` を削除するのみ）。
 
@@ -30,12 +32,12 @@ Phase 2（データ層）も完了。Supabaseは新しいAPIキー体系（Publi
 | 0 基盤セットアップ | ✅ 完了 |
 | 1 デザインシステム移植 | 🟡 進行中（共通コンポーネント完了、残りはPhase 4以降で `dev-preview` 削除のみ） |
 | 2 データ層（Supabase/Postgres） | ✅ 完了 |
-| 3 認証・アカウント管理 | 未着手 |
-| 4 クライアント・拠点管理 | 未着手 |
-| 5 施策データ手動入力 | 未着手 |
-| 6 広告API連携（フェーズドロールアウト） | 未着手 |
-| 7 来場〜契約データ入力（住宅会社側） | 未着手 |
-| 8 目標設定・予実管理 | 未着手 |
+| 3 認証・アカウント管理 | ✅ 完了（2026-08-24、招待〜パスワード設定〜ログインまで実機確認済み。テンプレートの`next`固定値化のみ外部作業が残るが実装は完了） |
+| 4 クライアント・拠点管理 | ✅ 完了 |
+| 5 施策データ手動入力 | ✅ 完了（デフォルト17施策・クライアント固有施策・制作費用すべて実装済み） |
+| 6 広告API連携（フェーズドロールアウト） | 🟡 進行中（2026-08-24、共通基盤完了・各媒体APIコード呼び出しはプレースホルダー） |
+| 7 来場〜契約データ入力（住宅会社側） | ✅ 完了（2026-08-24） |
+| 8 目標設定・予実管理 | ✅ 完了（2026-08-24、目標設定画面のみ。予実対比の表示自体はPhase 9） |
 | 9 ダッシュボード | 未着手 |
 | 10 レポート機能 | 未着手 |
 | 11 仕上げ | 未着手 |
@@ -68,19 +70,152 @@ Phase 3（認証）着手前に、spec.mdの機能に漏れがないかをUIで�
 - **レポートの期間指定・期間比較（spec §4.6 変更）**：対象月の単一選択から、期間種別（月次/週次/カスタム=任意の開始日〜終了日）の指定に変更。生成時に「比較期間を含める」を選択でき、含めた場合はダッシュボードと同じ`PeriodCompare`をレポート詳細にも表示する。`Report`型を`{base: ReportPeriodSnapshot, compare?: ReportPeriodSnapshot}`に再構成し、`ReportPeriodSnapshot`にファネル・チャネル別内訳・拠点別内訳・予実対比・制作費用合計をすべて含めるようにした（従来はファネルとチャネル別反響数のみで、spec §4.6の「チャネル別・拠点別・予実の集計結果」を満たしていなかった不足を修正）。
 - 集計ロジックの重複を減らすため、`lib/mock/aggregate.ts`に`buildTargetVsActual`・`buildReportPeriodSnapshot`・`sumProductionCost`を追加し、ダッシュボード（`DashboardView`）・レポート生成（`ReportsView`）・レポートのシードデータ（`data.ts`のMOCK_REPORTS）が同じ集計関数を共有する構成にした（手打ちの数値とのズレを防ぐため）。
 
-### ▶ 次回のアクション（Phase 3 — 認証・アカウント管理から再開）
+### ▶ 次回のアクション（2026-08-20時点、履歴の詳細は本ブロック内に残す）
 
-2026-08-01時点でここまで完了し、作業を一旦中断する。次回セッションは以下から再開する。
+**2026-08-20時点の到達点**：Phase 0〜2・4・5 完了。Phase 3（認証）は実装完了・外部設定が一部残る。Phase 6〜11は未着手。
+
+以下は2026-08-01時点で書かれた「Phase 3から再開する」という古いメモ（内容は完了済み・詳細は履歴として有用なため残す）。**2026-08-20時点で実際に次にやるべきことは、このブロックの末尾「2026-08-20時点の積み残し・留意点」を見ること。**
 
 - **前提の確認事項**（再度ユーザーに聞き直す必要はない、済んでいるはず）：GitHubリポジトリ `nagata-md/dashboadmark` にpush済み。Supabaseプロジェクト作成済み・`.env.local` にURL/Publishable key/Secret keyとも設定済み。migrations/seedはSupabase Dashboard経由で適用済み（§2参照）。**Vercel連携はまだ**（`vercel link` またはダッシュボードでのGitHubリポジトリimportが未実施）。
 - **Phase 3 でやること**（§2 Phase 3 の詳細も参照）：
-  1. Supabase Auth（メール+パスワード）を有効化する。
-  2. **`middleware.ts` を追加する（未着手・重要）**。`@supabase/ssr` の `createServerClient` は「ミドルウェアでのセッション更新なしだと原因不明の予期しないログアウト・認証エラーが起きる」と明記しているため、Phase 3 の最初にこれを作ること（`src/lib/supabase/server.ts` の `setAll` は Server Component からは書き込めない旨のコメントを参照）。
-  3. `agency_users` / `client_users` のサインアップ/招待フロー（Supabase Auth の `auth.users` 作成と同じ id でプロフィール行を作成、spec §6）。
-  4. 代理店担当者が新規クライアント登録時に住宅会社側の初期アカウントを同時発行する導線（spec §4.1）。
-  5. `/agency/users` / `/client/users` の追加ユーザー招待画面。
-  6. 初期データ投入：最初の代理店ユーザー（社内の実運用担当者）を1人、Supabase Dashboard の Authentication 画面から手動作成し、`agency_users` テーブルに対応する行を作る（この最初の1人だけは招待フローが無いので手動投入が必要）。
+  1. Supabase Auth（メール+パスワード）を有効化する。→ **完了（2026-08-20、確認のみ）**。新規Supabaseプロジェクトはメール+パスワードプロバイダがデフォルトで有効なため、ダッシュボード側の設定変更は不要だった。`auth.admin.createUser`（`email_confirm: true`）→`signInWithPassword`→`auth.admin.deleteUser`の使い捨てテストユーザーで作成・ログイン・削除の一連の流れが実際に成功することをService Role経由の一時スクリプトで検証済み（検証用ユーザーは削除済み、永続的な変更なし）。ログインフォーム自体はまだSupabase Authに接続されていない（静的フォームのまま、次項3で対応）。
+  2. ~~`middleware.ts` を追加する~~ → **完了（2026-08-20）**。**Next.js 16 では `middleware.ts` は `proxy.ts` にリネームされている**（`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`、`export function middleware` ではなく `export function proxy`）ため、`src/proxy.ts` として実装した。`@supabase/ssr` の `createServerClient` は「セッション更新なしだと原因不明の予期しないログアウト・認証エラーが起きる」と明記しているため、毎リクエストで `supabase.auth.getUser()` を呼びCookieを更新するのみの実装（`src/lib/supabase/server.ts` の `setAll` のコメント参照）。**未ログイン時の `/login` リダイレクトは意図的に入れていない**：Supabase Authがまだ有効化されておらずログイン手段が無いため、ここでガードを入れると全ルートがリダイレクトループになりモックアップの動作確認ができなくなる。ガードは本項目1・3（Auth有効化・ログインフォーム接続）の後に追加すること。`npx tsc --noEmit` と dev サーバーでの `/login`・`/client/dashboard`・`/agency/clients/[id]/dashboard` 疎通確認済み（いずれも200、ログに`proxy.ts`実行時間が出ることを確認）。
+  3. `agency_users` / `client_users` のサインアップ/招待フロー（Supabase Auth の `auth.users` 作成と同じ id でプロフィール行を作成、spec §6）。→ **認証まわりの実装は完了（2026-08-20）、実運用には外部設定2件が残る（下記参照）**。
+
+     2026-08-20、代理店・住宅会社で認証方式が異なる方針を確定（spec §4.1.1に反映済み）：代理店担当者は自社Google Workspaceドメイン限定のGoogle OAuth（ドメイン一致で初回ログイン時に`agency_users`自動発行、招待不要）、住宅会社担当者は既存方針どおりメール+パスワード（代理店がメールアドレス登録→招待メール→本人がパスワード設定）。
+
+     実装済みファイル：
+     - `src/lib/auth/agencyDomain.ts`：`AGENCY_GOOGLE_WORKSPACE_DOMAIN`環境変数（`.env.local`に`marketingdept-llc.com`を設定済み）に対するメールドメイン判定。
+     - `src/app/auth/callback/route.ts`：Google OAuthコールバック。`exchangeCodeForSession`→ドメイン判定（不一致なら`agency_users`を作らず即サインアウト）→Service Role経由で`agency_users`を自動作成（`agency_users_insert`のRLSポリシーは`is_agency_user()`前提のため初回作成はService Role必須）。
+     - `src/app/auth/confirm/route.ts`：住宅会社担当者の招待リンク（`verifyOtp`）受け口。Supabase Dashboardの「Invite user」メールテンプレートを`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next={{ .RedirectTo }}`に変更する必要あり（**未実施・下記外部作業**）。
+     - `src/app/set-password/page.tsx`：招待受諾後にパスワードを設定するページ（`supabase.auth.updateUser`）。
+     - `src/lib/auth/inviteClientUser.ts`：住宅会社担当者の招待（`admin.inviteUserByEmail`）。呼び出し元（代理店担当者）が対象クライアントに割当済みかをコード側で明示的に検証してからService Roleで実行する（masterplan E6方針）。
+     - `src/app/login/actions.ts` / `src/app/login/page.tsx`：ログイン画面に「Googleでログイン」（代理店）と「メール+パスワード」（住宅会社）の両方式を実装（従来の静的フォームから置き換え）。
+
+     **検証結果**：
+     - ドメイン判定ロジック（`isAgencyDomainEmail`）は一致・不一致とも期待通り動作することをユニット的に確認。
+     - `inviteClientUser`の認可チェックは、未割当クライアントへのinviteが`not_authorized`で正しく拒否されることを使い捨てテストデータ（代理店ユーザー・クライアント・割当を作成→テスト→削除、後片付け済み）で確認。
+     - 招待メール送信（`admin.inviteUserByEmail`）は**Supabase既定の組み込みメーラーのレート制限（"email rate limit exceeded"）に阻まれ、実際のメール送信までは確認できていない**（後述の外部作業が必要）。`verifyOtp`→`updateUser`（パスワード設定）→`signInWithPassword`の一連の流れ自体は、`admin.generateLink`で取得したトークンを使って迂回確認済みで正常動作する。
+     - Google OAuthは`external.google: false`（未有効化）のため、コールバック処理のコードレビューのみで実機テストは未実施。
+
+     **実運用開始前に必要な外部作業（ユーザー側、2件）**：
+     1. **Google OAuthクライアントの発行**（spec §10 新規D2）→ **完了（2026-08-20）**。Google Cloud ConsoleでOAuth 2.0クライアントを作成し、Supabase Dashboard の Authentication → Providers → Google に設定済み。`external.google: true`を確認し、実際にGoogleアカウントでログイン→ドメイン一致判定→`agency_users`自動作成まで実機で成功（DBに`長田聖明 / main@marketingdept-llc.com`の行が実際に作成されたことを確認）。
+     2. **カスタムSMTPプロバイダの設定**（2026-08-20新規発見）→ **DNS認証は完了、Supabase側の配線が残っている（⚠️次回最優先）**。Supabase既定の組み込みメーラーのレート制限（"email rate limit exceeded"）を回避するため、Vercel Marketplace経由でResendを導入（`vercel link`でVercelプロジェクト`marketingdept-llc/marketinddashboad`を新規作成しGitHub連携、`vercel integration add resend -m domain=marketingdept-llc.com -m region=ap-northeast-1`で導入。`RESEND_API_KEY`・`RESEND_EMAIL_DOMAIN`が`.env.local`に追加済み）。ドメイン認証用のDNSレコード（DKIM TXT・SPF MX・SPF TXT）をユーザー側で追加し、セッション終了時点で`resend domains get`が`status: "verified"`を返すことを確認済み。**しかし`admin.inviteUserByEmail`を試すと`AuthRetryableFetchError`（status 500, message `"{}"`）でまだ失敗する**——これはSupabase Dashboard側（Authentication → Emails → SMTP Settings）にResendのSMTP認証情報（host: `smtp.resend.com` / port: 465 / username: `resend` / password: `.env.local`の`RESEND_API_KEY`の値）がまだ設定されていないためと考えられる（未確認・次回最初に疑うべき箇所）。**次回やること**：①Supabase DashboardでSMTP設定を保存する、②「Invite user」メールテンプレートを`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next={{ .RedirectTo }}`に変更する（`src/app/auth/confirm/route.ts`参照、未実施）、③`admin.inviteUserByEmail`が成功するか再テストする、④可能なら`/agency/clients/new`から実際に住宅会社アカウントを1件招待し、招待メール受信→パスワード設定→ログインまで実機で確認する。
+  4. 代理店担当者が新規クライアント登録時に住宅会社側の初期アカウントを同時発行する導線（spec §4.1）。→ **実装完了（2026-08-20、Phase 4の一部を前倒し）**。
+     - `src/app/(agency)/agency/clients/page.tsx`：担当クライアント一覧（RLSの`clients_select`により自動的に割当済みクライアントのみ表示）。
+     - `src/app/(agency)/agency/clients/new/page.tsx` / `actions.ts`：新規クライアント登録フォーム。クライアント名・初期担当者の氏名/メールアドレスを入力すると、`clients`作成→`agency_user_clients`に登録者自身を割当→`inviteClientUser`で初期アカウントを招待、を1つのServer Actionで実行する。
+     - `src/lib/auth/requireAgencyUser.ts`：/agency/*ページ共通のガード（未ログイン・代理店ユーザーでなければ/loginへ）。実際にGoogleログイン済みセッションで動作確認済み。
+     - **実装中に見つけて修正した実バグ**：`clients`テーブルへの新規行INSERT時に`.select().single()`（RETURNING）を付けると「new row violates row-level security policy」で失敗する不具合があった。原因はPostgreSQLの仕様で、RETURNINGを使うINSERTは新規行がRETURNING時点でSELECTポリシー（`clients_select`の`is_authorized_for_client`）も満たす必要があるため——ところが`agency_user_clients`の割当はこのINSERTの**後**に作成する設計だったため、割当がまだ存在せず新規クライアント行がSELECTポリシーを満たせず失敗していた。**対処**：クライアントIDをアプリ側（`crypto.randomUUID()`）で生成し、RETURNINGなしでINSERTすることで回避。使い捨てテストデータ（QAテスト代理店・QAテストクライアント2）で作成→一覧反映を確認済み、後片付け済み。
+     - **既知の制限（2026-08-20時点で一部解消・一部未解消）**：`[id]/layout.tsx`自体は実クライアントに対応済み（ハイブリッド解決）だが、配下の各page.tsxは個別に`getClient(id)`（モック専用）を呼んで`notFound()`する実装のままだったため、実クライアントでは404になっていた。**`campaigns`・`locations`はPhase 5で実データ対応済みで解消**。**`dashboard`・`reports`は`src/app/(agency)/agency/clients/[id]/{dashboard,reports}/page.tsx`が未対応のまま残っており、実クライアントでは引き続き404になる**（Phase 9・10着手時に対応予定、それまでの既知の制限）。`/client/dashboard`・`/client/ad-connections`・`/client/reports`も同様に未対応。
+  5. `/agency/users` / `/client/users` の追加ユーザー招待画面。→ **完了（2026-08-24）**。詳細は本セクション末尾の同日付追記を参照。
+  6. 初期データ投入：最初の代理店ユーザーは、上記のGoogle自動プロビジョニングにより「マーケティング担当者が初めてGoogleでログインした瞬間」に自動発行されるため、手動作成は不要になった（2026-08-20の方針変更により当初想定から変更）。
 - 完了条件・受け入れ基準は §2 Phase 3、§3 の対応表を参照。
+
+#### 2026-08-20時点の積み残し・留意点（このセッションの終了時点）
+
+**⚠️ 次回最優先（外部作業・ユーザー側）**
+1. Supabase Dashboard（Authentication → Emails → SMTP Settings）にResendのSMTP情報を設定する（host: `smtp.resend.com` / port: 465 / username: `resend` / password: `.env.local`の`RESEND_API_KEY`）。ResendのDNS認証（DKIM/SPF）は完了済み（`status: verified`確認済み）だが、Supabase側にまだ配線していないため、`admin.inviteUserByEmail`は`AuthRetryableFetchError`（500）で失敗する状態のまま。
+2. 「Invite user」メールテンプレートを`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next={{ .RedirectTo }}`に変更する（`src/app/auth/confirm/route.ts`が前提としている形式。未変更のままだとデフォルトのSupabase側確認画面に飛んでしまいこのアプリのフローに乗らない）。
+3. 上記2件が終わったら、実際に`/agency/clients/new`から住宅会社を1件登録し、招待メール受信→パスワード設定（`/set-password`）→ログインまで一連の流れを実機で確認する（これはまだ一度も実メール経由では確認できていない。verifyOtp以降はトークンを直接使う迂回確認のみ済み）。
+
+**未着手の機能（次に取り組むとすれば）**
+- Phase 6は共通基盤のみ完了（下記2026-08-24の節参照）、各媒体の実API実装・審査申請は未着手。
+- Phase 7・8は完了（下記参照）。Phase 9〜11は未着手（Phase 9のダッシュボードで実際にtargetsを読んで予実対比を表示する部分もここに含まれる）。
+
+### 2026-08-24（続き）: Phase 7（来場〜契約データ入力・住宅会社側）実装
+
+ユーザーの「審査は後回しにしてよいので、広告APIの実装自体とPhase 7を進めたい」という指示を受けて着手。spec §4.3どおり、`/client/visits`（来場予約数・来場数）・`/client/proposals`（見積もり数・図面出し数）・`/client/contracts`（契約数）の3画面を新規実装した。3画面とも**同じ`funnel_metrics`行（client_id+location_id+period_type+period_startがキー）の異なる列に対してUPSERTする**構造（見積もり・図面出しは来場から分岐する並列2段階のため合算しない、§3）。
+
+- `src/lib/funnel/upsertFunnelMetric.ts`（新規、3画面共通）：`campaign_metrics`と同様、`location_id`のnull有無で部分ユニークインデックスが分かれているため、既存行をSELECTしてからUPDATE/INSERTを切り替える。**UPDATE時は呼び出し元が渡したフィールドのみを更新し、他の2画面が担当する列には触れない**（`getFunnelMetric`で現在値を取得しフォームに初期値として表示）。
+- `src/app/(client)/client/{visits,proposals,contracts}/{page,actions}.tsx`（新規）：`/agency/clients/[id]/campaigns`と同じ期間・拠点選択パターン（月次/週次、`resolvePeriod`共有）を踏襲。保存後は`?success=saved`で同じ画面にリダイレクトし成功メッセージを表示（`/client/users`のフィードバックを踏まえ最初から成功メッセージ付きで実装）。
+- 拠点未登録クライアントでも「全社共通」を選べば動作する（`locationId=""`→`location_id is null`、既存の施策データ入力と同じ扱い）。
+- **検証**（`npx tsx --env-file=.env.local`で実コードのDB操作ロジックを直接実行、使い捨てテストデータ、後片付け済み）：同一期間・同一拠点に対して①`/client/visits`相当の保存（新規行作成）→②`/client/proposals`相当の保存→③`/client/contracts`相当の保存、の順に実行し、**後続の保存が先に保存した列を上書き・消去しないこと**（各画面が自分の担当列のみを更新すること）を確認。`npx tsc --noEmit`・`npm run build`とも成功、3ルートがビルドに現れることを確認済み。
+- ブラウザでの実機目視確認はまだ行っていない（Phase 6のUI確認と合わせて次回対応）。
+- 代理店側にはこの3画面の対応物は無い（spec §4.3のタイトル・画面一覧§5のとおり住宅会社側専用の機能のため、意図した設計）。
+
+### 2026-08-24（続き）: Phase 8（目標設定）実装
+
+spec §4.4「代理店担当者が、クライアントごとに月次でKPI目標値を設定する」に対応。`/agency/clients/[id]/targets/{page,actions}.tsx`を新規実装した。
+
+- **KPIキーの定義場所を整理**：既存の`src/lib/mock/aggregate.ts`内に`KPI_LABELS`（`leads_total`・`visit_reservations`・`visits`・`contracts`の4種、モックのダッシュボード予実対比が使用）が定義されていたが、Phase 9で実データのダッシュボードを実装する際にこの4種と食い違うと予実対比が機能しなくなるため、`src/lib/targets/kpiLabels.ts`を正の定義場所として新設し、`lib/mock/aggregate.ts`側はそこからimportするよう修正した（挙動は変えていない、参照先の一本化のみ）。spec §4.4は「チャネル別反響数」も目標設定の例として挙げているが、モック側の実装が最初からこの4種（会社全体のKPIのみ）に絞っていたため、Phase 8もそれに合わせた（チャネル別の目標が本当に必要になった場合はPhase 9着手時に再検討）。
+- `targets`テーブルは`unique(client_id, kpi_key, period_start)`という単一の実制約（`campaign_metrics`/`funnel_metrics`のような部分インデックス分割ではない）のため、`upsert(rows, {onConflict: "client_id,kpi_key,period_start"})`をそのまま使えた。
+- **空欄保存時の挙動**：`targets.target_value`は`NOT NULL`のためnullでは保存できない。空欄で保存した場合はその月・そのKPIの目標を「未設定」に戻す意味として行ごと削除する仕様にした（valueをそのまま放置＝変更なし、ではない点に注意）。
+- 目標は会社全体に対してのみ設定（拠点別の目標設定はv1では行わない、§4.4決定済み）。
+- **検証**（`npx tsx --env-file=.env.local`で実際のupsert/deleteクエリを直接実行、使い捨てテストデータ、後片付け済み）：①複数KPIの新規保存→②一部KPIを更新・一部を空欄にして再保存、で「更新したKPIは新しい値になり、空欄にしたKPIは削除される」ことを確認。`npx tsc --noEmit`・`npm run build`とも成功、`/agency/clients/[id]/targets`がビルドに現れることを確認済み。
+- モッククライアント（id: "1"/"2"）向けの目標設定画面は元々存在しない（Phase 1〜3のUIモックアップ4画面に含まれていなかったため）。このページは実クライアント専用として実装し、`clients`テーブルに該当IDが無い場合は`notFound()`する（他の一部画面のような mock/real ハイブリッド分岐は無い）。
+- ブラウザでの実機目視確認はまだ行っていない（Phase 6・7と合わせて次回対応）。
+- `targets`テーブルのRLS（`targets_access`、Phase 2で設定）は代理店・住宅会社どちらの`is_authorized_for_client`も許可しているため、コード上は住宅会社側からも書き込み可能な状態のまま（`production_costs`のように書き込みを代理店限定にするRLS変更はしていない）。spec上は代理店のみが設定する機能のため実害はないが（`/client/targets`というUI自体が存在しない）、気になる場合はPhase 9着手時にRLSを絞ることも検討。
+
+### 2026-08-24（続き）: Phase 6（広告API連携）着手 — 共通基盤を実装、各媒体API呼び出しはプレースホルダー
+
+ユーザーと相談し、「審査は工数がかかるため後回しにしたいが、広告API連携自体の実装は進めたい」という方針を確認。さらに「3媒体共通部分（OAuth接続画面・同期基盤・手動上書き保護）を先に全部作り、各媒体API呼び出し部分はプレースホルダーにする」方針で合意した（Google/Yahoo/Meta とも開発者アカウント・OAuthクライアントは2026-08-24時点で未取得）。
+
+**実装したもの（共通基盤、本実装）**：
+- `src/lib/crypto.ts`（E3）：AES-256-GCMによるトークン暗号化/復号。**`.env.local`の`TOKEN_ENCRYPTION_KEY`が空文字列のまま放置されていたことが判明**したため、このセッションでランダムな256bit鍵を生成し設定した（本番Vercel環境にも別途同じ方式で設定が必要、ローカルの値をそのまま使い回さないこと）。
+- `src/lib/ads/types.ts`：`AdPlatformAdapter`インターフェース（`getAuthorizationUrl`・`exchangeCodeForTokens`・`refreshAccessToken`・`fetchConversionActions`・`fetchMetrics`）。
+- `src/lib/ads/{google-ads,yahoo-ads,meta-ads}.ts`：媒体ごとのアダプター。**`getAuthorizationUrl`（OAuth認可画面へのURL構築）のみ本実装**（Google・Metaは公開安定APIの標準エンドポイントを使用、Yahoo!広告は認可エンドポイントの正確なURLが2026-08-24時点で未確認のため実装前に要ドキュメント確認とコメントで明記）。**それ以外の4メソッド（トークン交換・リフレッシュ・コンバージョンアクション取得・レポート取得）は全媒体プレースホルダー**（`src/lib/ads/placeholder.ts`、決定的なダミー値を返しエラーは投げない — 同期基盤自体をテストできるようにするため）。
+- `src/lib/ads/sync.ts`：`syncConnection(connectionId, {force?})`。**同期の粒度は「当月の月初〜当日までの累計を`campaign_metrics`の`period_type='monthly'`行に上書き保存」という設計に決定**（E7の「生データのまま保持」方針、既存の手動入力と全く同じUNIQUE制約・上書きロジックを再利用できるため。案として日次粒度も検討したが、月次・週次しかない手動入力とのオーバーライド整合を取るのが複雑になるため見送った——Phase 9のダッシュボード集計ロジック実装時にこの前提を覚えておくこと）。`manually_overridden=true`の行は`force:true`を指定しない限りスキップして保護する。
+- `src/lib/auth/isAuthorizedForClient.ts`：`agency_user_clients`の割当 または `client_users`の所属、のいずれかで判定する共通ヘルパー（DBの`is_authorized_for_client()`と同じ判定をコード側で再現）。`resolveCallerType`も同ファイルに追加。
+- `src/app/api/ads/oauth/[platform]/route.ts`：OAuth開始（`?clientId=&returnTo=`）とコールバック（`?code=&state=`）を1ルートで処理。stateはclientId/returnToをbase64url化したもの（改ざんされてもコールバック側で`isAuthorizedForClient`を再検証するため実害は無い設計）。接続成功時、コンバージョンアクション一覧を取得し**未選択時は全件選択**として保存（spec §4.2.2決定済みルール）。
+- `src/app/api/ads/sync/route.ts`：Vercel Cronからの日次バッチ（`vercel.json`に`0 18 * * *`=JST 3:00で設定、`CRON_SECRET`で認証）。`platform_integrations.status='active'`かつ`status != 'disconnected'`の接続のみ対象、1接続ずつ独立して処理し失敗が他に波及しないようにした（spec §8）。
+- `src/app/api/ads/sync/[connectionId]/route.ts`：「今すぐ同期」（POST、認可チェックあり）。
+- `src/lib/auth/isAuthorizedForClient`とは別に`revertToApiValue`（`campaigns/actions.ts`）：「APIの値に戻す」。押した時点で対象接続を`force:true`で即時再同期する方針（2026-08-10にユーザーと確認済みの決定を踏襲）。
+- **DBスキーマ変更**：`supabase/migrations/0003_ad_connections_unique.sql`で`ad_connections(client_id, platform)`にUNIQUE制約を追加（0001時点で漏れていた。upsertに必要なため追加、既存データ無しを確認の上、`supabase db query --linked --file`で適用済み）。
+- **UI**：`src/components/ads/RealAdConnections.tsx`（Server Component、`/agency/clients/[id]/campaigns`・`/client/ad-connections`の両方から共有）。媒体単位の審査状況バッジ・接続状態バッジ・OAuth接続/再接続ボタン（審査待ちは非活性）・今すぐ同期ボタン・コンバージョンアクション選択チェックボックスを表示。`ad_connections`はauthenticatedロールへのRLSが無い（Service Role専用）ため、コンポーネント内で`isAuthorizedForClient`による認可チェックを行ってからService Roleで取得している。既存のモッククライアント（id: "1"/"2"）は従来の`AdConnectionsView`（モック）のまま維持するハイブリッド構成（他の実データ対応済み画面と同じ方針）。施策一覧テーブルには`source='api'`かつ`manually_overridden=true`の行にのみ「APIの値に戻す」リンクを表示するようにした。
+- **検証**（`npx tsx --env-file=.env.local`でパスエイリアス込みの実コードを直接実行、使い捨てテストデータ、後片付け済み）：
+  1. 初回同期（既存行なし）→ `campaign_metrics`に`source='api'`・`manually_overridden=false`の行が正しく作成されることを確認。
+  2. 上記の行を手動で`manually_overridden=true`にした後に再同期 → `skipped: true`で保護され、値が上書きされないことを確認。
+  3. `force: true`で再同期（「APIの値に戻す」相当） → 保護を無視して上書きされ、`manually_overridden`が`false`に戻ることを確認。
+  4. `token_expires_at`が過去の接続で同期 → `refreshAccessToken`が呼ばれ、新しいトークンが暗号化されて保存され、同期自体も成功することを確認。
+  5. `ad_connections.status`・`last_synced_at`が同期成功時に正しく更新されることを確認。
+  `npx tsc --noEmit`・`npm run build`とも成功、`/api/ads/oauth/[platform]`・`/api/ads/sync`・`/api/ads/sync/[connectionId]`がビルドに現れることを確認済み。
+- **今回のテストで判明した注意点**：`.env.local`の`TOKEN_ENCRYPTION_KEY`が空だった件（上記参照）は、実際にPhase 6のテストで発覚するまで誰も気づいていなかった。Phase 2完了時点で「往復一致を単体テストで確認する」と記録されていたが、実際には鍵が未設定のまま放置されていた可能性がある——今後、環境変数が「設定されている前提」の記述を鵜呑みにせず、実際の値を確認する習慣が必要。
+- **未実施・次回以降に必要な作業**：
+  1. 各媒体の実際のOAuthクライアント発行（Google Cloud Console・Yahoo!広告API・Meta for Developers、外部作業）。
+  2. 各アダプターの`exchangeCodeForTokens`・`refreshAccessToken`・`fetchConversionActions`・`fetchMetrics`の本実装（媒体ごとの公式ドキュメントを都度確認しながら、テストアカウントで検証）。
+  3. Yahoo!広告APIの認可エンドポイントURL自体も要確認（`src/lib/ads/yahoo-ads.ts`のコメント参照）。
+  4. 媒体API審査の申請作業（D1、外部作業、ユーザー側）。
+  5. 実際のOAuth接続ボタンをブラウザで押した場合、現状は空の`client_id`のままGoogle/Yahoo/Metaの認可画面に遷移し失敗する（想定通り、認証情報未設定のため）。UI自体の見た目・接続状況表示・コンバージョンアクション選択チェックボックス・「今すぐ同期」ボタンの動作は、使い捨ての`ad_connections`行を用意すれば実機で見た目確認ができる。
+
+**⚠️保留中（ユーザーの指示により後回し、2026-08-24）**：上記UI（`RealAdConnections`コンポーネント）は`npx tsc --noEmit`・`npm run build`のみ確認済みで、**ブラウザでの実機目視確認はまだ行っていない**。同期エンジン自体（`syncConnection`のロジック）はユニット的に実コードで検証済みだが、Reactコンポーネントの表示崩れ・ボタンのレイアウト等は未確認。次回、時間があれば使い捨ての`ad_connections`行を用意してブラウザで見た目を確認すること。
+- クライアント固有施策（`campaign_channels`）の**編集・削除**画面（今回実装したのは「追加」のみ。spec上も削除は明記されていないため、必要になった時点で検討）。
+
+**既知の制限（今は直さなくてよいが、次に触る時に思い出すべきこと）**
+- `/agency/clients/[id]/dashboard`・`/agency/clients/[id]/reports`・`/client/dashboard`・`/client/ad-connections`・`/client/reports`は、実際に`/agency/clients/new`で作成した実クライアントでは**まだ404になる**（各page.tsxがモック専用の`getClient(id)`を直接呼んでいるため）。`campaigns`・`locations`は本セッションで実データ対応済み。Phase 9・10着手時にまとめて実データへ置き換える想定。
+- モックアップ用クライアント（id: `"1"`・`"2"`、`src/lib/mock/data.ts`）は今後も`CampaignsView`等のモック実装を使い続ける設計にしている（実クライアントかどうかをclientIdの存在で振り分けるハイブリッド構成、`[id]/layout.tsx`・`campaigns/page.tsx`参照）。
+- テスト方法の注意点：Supabaseの RLS でブロックされた `UPDATE` は**エラーを返さず「0件影響」で成功扱いになる**。「エラーが返ってこなければOK」という検証は誤検知の元（本セッションで一度誤検知した）。RLSの拒否を確認する時は必ずService Roleで実際の値を再取得して変化していないことを確認すること。
+- Server Actions（`<form action={...}>`）は`curl`で直接POSTしても呼び出せない（Next.jsが生成する`$ACTION_ID_...`の内部エンコーディングに依存するため）。動作確認は「使い捨てのテストユーザー・データをService Role/supabase-jsで作り、実際のSupabaseクエリロジックを再現するNode検証スクリプトを都度書いて実行→片付ける」方式で行っている。ブラウザ経由の実機確認が必要な箇所（Google認証等）はユーザー本人に試してもらった。
+- Vercel連携は完了済み（プロジェクト`marketingdept-llc/marketinddashboad`、GitHubリポジトリ`nagata-md/dashboadmark`と連携済み）だが、**まだ一度もデプロイはしていない**（ローカル開発のみ）。
+- Supabase CLIはこのセッションで`supabase link --project-ref jyqmoosjduemlocpgqqu`によりlink済み（以前は未link）。マイグレーションは`supabase db push`ではなく`supabase db query --linked --file <path>`で直接適用する運用を継続している（0001は元々Dashboard SQL Editor経由、0002は今回CLI経由——どちらも`supabase_migrations.schema_migrations`には記録されないため、`supabase migration list`等で追跡はできない点に注意）。
+
+### 2026-08-24: SMTP設定完了・招待〜ログインの実機確認、その過程で見つけた3件の実バグを修正
+
+前回セッションの積み残し（SMTP設定・招待メールテンプレート変更）はユーザー側で対応済み。今回、実際に`/agency/clients/new`から住宅会社を招待→パスワード設定→ログインまでを実機で確認し、**Phase 3（認証）を完了**とした。この過程で3件の実バグを発見・修正済み。
+
+**追記（同セッション内）**：上記のテンプレート変更（`next=/set-password`固定値化）はユーザー側で実施済み。`nagata+test2@marketingdept-llc.com`（テンプレート確認専用、確認後に削除済み）で再検証し、実際のメールリンク→確認ページ→「アカウントを有効化する」ボタン→`/set-password`という正しい遷移になることをログ（`GET /auth/confirm?...&next=/set-password`）とDB（`confirmed_at`記録）の両方で確認した。**外部作業の残りはなし。**
+
+**発見・修正したバグ**：
+1. **`inviteClientUser`のエラーメッセージが不正確**：Supabaseの`admin.inviteUserByEmail`が返すエラー内容を全部「invite_failed」に握りつぶしていたため、実際には無関係な原因（後述）でも「招待メールの送信に失敗しました。時間をおいて再度お試しください。」という不正確なメッセージが出ていた。`email_exists`（既に他の役割で登録済みのメールアドレスを招待しようとした場合）を個別に判定し、「このメールアドレスはすでに登録されています。別のメールアドレスを使用してください。」と表示するよう修正（`src/lib/auth/inviteClientUser.ts`・`src/app/(agency)/agency/clients/new/page.tsx`）。**なお`auth.users`のメールアドレスは代理店・住宅会社の区別なくプロジェクト全体で一意**という制約があるため、代理店担当者自身のメールアドレスを住宅会社の初期担当者として招待することはできない（実際にこれで最初の実機テストが失敗した）。
+2. **招待リンクをメールクライアントの自動リンクスキャンが先に消費してしまう不具合**：`/auth/confirm`（旧`route.ts`）がGETリクエストの時点で即座に`verifyOtp`を実行していたため、メールの安全性チェック機能（Outlook Safe Links等）がユーザーのクリックより先にリンクを自動アクセスし、ワンタイムトークンを消費してしまっていた。実際に`auth.users.confirmed_at`がユーザー本人のクリックより前の時刻で記録されていたことで発覚。**対処**：`route.ts`を廃止し、`page.tsx`（GET、トークンは表示のみでまだ検証しない）＋`actions.ts`のServer Action（ユーザーの「アカウントを有効化する」ボタン押下＝POSTでのみ`verifyOtp`を実行）の2段階に分離した（`src/app/auth/confirm/{page,actions}.tsx`）。
+3. **招待メールのリンクが`/set-password`ではなくログイン画面に飛んでしまう不具合**：`inviteClientUser.ts`が`admin.inviteUserByEmail`に渡す`redirectTo`を相対パス`"/set-password"`のままにしていたため、Supabase側がこれを許可URLとして解決できず、メールテンプレートの`{{ .RedirectTo }}`がサイトのルート（`http://localhost:3000`）だけに丸められてしまっていた（トップページ`/`は無条件に`/login`へリダイレクトする実装のため、結果的にログイン画面に着地する）。verifyOtp自体は成功していたため気づきにくいバグだった。**対処**：`{{ .RedirectTo }}`という動的な値への依存をやめ、メールテンプレート側の`next=`を`/set-password`の固定値にする方針に変更（コード側の`redirectTo`パラメータ自体は残しているが、テンプレートがそれを参照しないため実質無害化）。**この変更はユーザー側で実施済み、`nagata+test2@marketingdept-llc.com`での再検証で修正を確認済み（上記「追記」参照）。**
+4. **（バグではないが同時に発覚・修正）Sidebarのログアウトボタンが一度も表示されていなかった**：`Sidebar`コンポーネントの「ログアウト」ボタンは`onLogout`propが渡された場合のみ表示する実装だったが、`onLogout`を渡している呼び出し元がコードベース中に一つも無かった（agency/clientどちらのlayoutからも未配線）。ログアウト機能自体は必須（実機確認中、代理店Googleセッションから住宅会社セッションに切り替える手段が無いことで発覚）のため、`onLogout`propを廃止し、`Sidebar`内部で直接`supabase.auth.signOut()`を呼ぶ方式に変更（`src/components/layout/Sidebar.tsx`）。
+
+**検証**：`nagata@marketingdept-llc.com`を実際の住宅会社担当者として招待→実メール受信→（1回目はバグ2により失敗、2回目の修正後の招待メールでバグ3が発覚し`/set-password`に直接アクセスする形で回避）パスワード設定→ログアウト→`/login`のメール+パスワードで実際にログイン成功、まで確認済み。`npm run build`で全ルート（`/auth/confirm`含む）が正常にビルドされることも確認済み。試行錯誤で生じた孤立クライアントデータ（重複4件）は削除済み、成功した「合同会社マーケティングデパートメント」クライアント（実データ、`nagata@marketingdept-llc.com`が住宅会社担当者として所属）は残っている。
+
+**このセッション開始時点で判明した別件**：Phase 3〜5の実装（認証一式・拠点管理・施策データ入力・クライアント固有施策・制作費用、いずれも本書には「完了」と記録済み）が**2026-08-10以降一度もgitコミットされていなかった**（`git log`は2026-08-10のUIモックアップ追加で止まっていた）。本セッションでもまだコミットしていない（ユーザーの指示により後回し）。次回セッション開始時、作業再開前に必ず`git status`を確認し、着手前にコミットすることを推奨する。
+
+### 2026-08-24（続き）: `/agency/users`・`/client/users`（追加ユーザー招待画面）を実装
+
+spec §4.1「追加のユーザー招待は、代理店・住宅会社いずれの管理画面からも、自分の所属側のユーザーを追加できる」に対応。着手前にユーザーと相談し、`/agency/users`の仕様を確定した：代理店担当者はGoogle Workspaceドメインでの自動プロビジョニング制（spec §4.1.1）のため招待の概念が無く、**一覧表示のみ**とする方針で確定（削除機能等は追加しない）。
+
+- `src/lib/auth/inviteClientUser.ts`を拡張：呼び出し元が代理店担当者（`agency_user_clients`の割当で認可判定）か、住宅会社担当者本人（自分の`client_id`と一致するかで認可判定）かを`callerType: "agency" | "client"`で切り替えられるようにした。既存の呼び出し元（`src/app/(agency)/agency/clients/new/actions.ts`）は`callerType: "agency"`を渡すよう更新（挙動変更なし）。
+- `src/app/(agency)/agency/users/page.tsx`（新規）：`agency_users`一覧表示のみ。担当者向けの案内文（自社Googleアカウントでのログイン方法）を表示。`agency_users_select`のRLS（`is_agency_user()`）により全代理店ユーザーが他の代理店ユーザーも参照できることを利用し、Service Role不要で実装。
+- `src/app/(client)/client/users/{page,actions}.tsx`（新規）：自社（`client_users.client_id`）の担当者一覧＋追加招待フォーム。`inviteAdditionalUser`アクションが`inviteClientUser`を`callerType: "client"`で呼び出す。
+- `/agency/clients`・`/agency/clients/new`のサイドバーナビに「ユーザー管理」リンクを追加。
+- **検証**（使い捨てテストデータ、後片付け済み）：①別クライアントの住宅会社担当者が、自分の所属ではないクライアントへ招待を試みると`not_authorized`で正しく拒否されることを確認。②実際の住宅会社担当者（`nagata@marketingdept-llc.com`、実データ）が自社にチームメイトを招待でき、招待自体が成功することを確認（`inviteClientUser`ロジックを再現したNode検証スクリプトで実施、実際のメール受信・パスワード設定までは今回未確認——ロジックはPhase 3で実機確認済みの`inviteClientUser`本体と共通のため、追加確認は不要と判断）。`npx tsc --noEmit`・`npm run build`とも成功、`/agency/users`・`/client/users`両ルートがビルドに現れることを確認済み。
+- **ユーザーからのフィードバックで追加対応した2点**：
+  1. 招待成功後に画面が一覧に戻るだけで「成功したのか分かりにくい」という指摘を受け、`/client/users`（招待後）・`/agency/clients/new`→`/agency/clients`（クライアント登録後）の両方に緑色の成功メッセージ（`success=`クエリパラメータ経由）を追加。
+  2. 「クライアントのユーザー管理には削除機能が必要」という指摘を受け、`src/lib/auth/removeClientUser.ts`（`inviteClientUser.ts`と同じ`callerType`認可方式）と`/client/users`の削除ボタンを追加。**自分自身の削除は禁止**（住宅会社側の最後の担当者が自分を消してログインできなくなる事故を防ぐため）。削除は`client_users`行の削除＋`auth.admin.deleteUser`によるSupabase Auth側アカウントの完全削除の両方を行う（削除後、同じメールアドレスへの再招待が可能）。使い捨てテストデータで、自己削除禁止・他クライアントからの削除試行の拒否・正常な削除・削除済みユーザーへの再削除（`not_found`）を確認済み。`/agency/users`側には削除機能を追加していない（一覧表示のみの方針は変更なし、Google自動プロビジョニングのため）。
 
 ---
 
@@ -211,16 +346,36 @@ vercel.json         # Cron設定（E4）
 
 ### Phase 4 — クライアント・拠点管理
 **ゴール**：クライアント・拠点の登録・編集・切替が一通り動作する（spec §4.1）。
-1. `/agency/clients`：担当クライアント一覧・切替。
-2. `/agency/clients/[id]/locations`・`/client/locations`：拠点の登録・編集を代理店・住宅会社どちらからも行えるようにし、`created_by_type/id`・`updated_by_type/id` を記録する。
-**完了条件**：代理店・住宅会社どちらの画面からも拠点を登録・編集でき、編集者の記録が残る。
+1. `/agency/clients`：担当クライアント一覧・切替。→ **完了**（Phase 3の項目4で前倒し実装済み）。
+2. `/agency/clients/[id]/locations`・`/client/locations`：拠点の登録・編集を代理店・住宅会社どちらからも行えるようにし、`created_by_type/id`・`updated_by_type/id` を記録する。→ **完了（2026-08-20）**。
+   - `src/app/(agency)/agency/clients/[id]/locations/{page,actions}.tsx`・`src/app/(client)/client/locations/{page,actions}.tsx`：拠点一覧・追加・インライン編集（`src/components/locations/LocationNameEditor.tsx`、新規クライアント登録直後は拠点0件のためModalほどの複雑さは不要と判断し行内テキスト⇔フォーム切替の最小構成にした）。
+   - **同時に修正**：`src/app/(agency)/agency/clients/[id]/layout.tsx`・`src/app/(client)/client/layout.tsx`に認証ガード（`requireAgencyUser`/`requireClientUser`、新規`src/lib/auth/requireClientUser.ts`）を追加し、Sidebarの氏名・メールアドレスを実際のログインユーザーの値に置き換えた。agencyレイアウトは「`lib/mock/data`のモッククライアント（id: "1"/"2"、Phase 1〜3の画面確認用）→ 無ければSupabaseの実クライアント」の順で名前を解決するハイブリッド構成にし、Phase 1〜3で確認済みのモック画面と、`/agency/clients/new`で新規作成した実クライアントの両方でレイアウトが機能するようにした（配下の`dashboard`/`campaigns`/`reports`ページ自体はまだモックデータのみを参照するため、実クライアントでは中身が空/未対応のまま——既知の制限、Phase 5以降で解消）。
+   - **検証**：使い捨てテストデータ（代理店ユーザー・クライアント・割当・住宅会社ユーザー）で、代理店による拠点作成・改名、住宅会社セッションからの拠点閲覧（代理店作成分も見える）・拠点作成、他クライアントの拠点は見えないこと（RLS分離）を確認。`npm run build`で全ルートが正常に認識されることも確認済み。後片付け済み。
+**完了条件**：代理店・住宅会社どちらの画面からも拠点を登録・編集でき、編集者の記録が残る。→ 満たされている（実データで確認済み）。
 
 ### Phase 5 — 施策データ手動入力
 **ゴール**：📌 手動施策（spec §4.2 マスタのうち「手動」の14施策）の期間・拠点別データ入力が動作する。
-1. `/agency/clients/[id]/campaigns`：施策一覧・期間（月次/週次）・拠点（特定拠点/全社共通）を指定した数値入力フォーム（spec §4.2.1）。
-2. TVCM・ポータルサイト・チラシ折込の3施策は表示回数・クリック数を任意項目にする（spec §4.2）。
-3. CTR・CPC・CPL は保存せず、一覧表示時に算出する（`lib/metrics/`、spec §4.2 算出式）。
-**完了条件**：代理店担当者が施策データを期間・拠点を指定して入力・一覧確認でき、CTR/CPC/CPL が表示される。
+1. `/agency/clients/[id]/campaigns`：施策一覧・期間（月次/週次）・拠点（特定拠点/全社共通）を指定した数値入力フォーム（spec §4.2.1）。→ **完了（2026-08-20）**。
+2. TVCM・ポータルサイト・チラシ折込の3施策は表示回数・クリック数を任意項目にする（spec §4.2）。→ **完了**。
+3. CTR・CPC・CPL は保存せず、一覧表示時に算出する（`lib/metrics/`、spec §4.2 算出式）。→ **完了**。
+**完了条件**：代理店担当者が施策データを期間・拠点を指定して入力・一覧確認でき、CTR/CPC/CPL が表示される。→ 満たされている（デフォルト17施策・使い捨てテストデータで確認済み）。
+
+**2026-08-20の実装内容と決定事項**：
+- **週次入力UIの方式を確定**：ISO週番号の`<input type="week">`は媒体ごとに週の区切り方（日〜土・月〜日等）が異なり不適合と判明していたため、`<input type="date">`による自由な週開始日入力とし、内部的には「開始日+6日」を1週間として扱う方式に決定（`src/lib/campaigns/period.ts`）。曜日の強制（例：月曜始まり固定）は行わない。
+- **クライアント固有施策の追加管理（spec §4.2.3）・制作費用入力（§4.2.4）も同日中に追加実装**（当初は次回以降に持ち越す予定だったが、ユーザーからの指示で続けて着手）。
+- **spec.mdとDBスキーマの乖離を発見・解消**：2026-08-10にspec.mdへ追記された §4.2.3（`campaign_channels.client_id`/`enabled_fields`/`required_fields`）・§4.2.4（`production_costs`テーブル）は、実際には`supabase/migrations/0001_init.sql`に一度も反映されていなかった（マイグレーションファイルを確認して判明）。**`supabase/migrations/0002_client_channels_and_production_costs.sql`を新規作成し、`supabase db query --linked --file`で実DBに適用済み**（既存の17施策データは非破壊的なALTER TABLEで保持、methodは既存のplatform列から'api'/'manual'を自動判定、enabled_fields/required_fieldsは§4.2の決定済みルール通りに初期値投入）。これに伴い、コア実装時に暫定対応として作った`src/lib/campaigns/defaultChannelRules.ts`（チャネル名によるハードコード判定）は不要になったため削除し、`campaign_channels.enabled_fields/required_fields`を直接参照する汎用実装に置き換えた（`entry/page.tsx`・`entry/actions.ts`）。
+- 実装：
+  - `supabase/migrations/0002_client_channels_and_production_costs.sql`：上記スキーマ変更＋RLS（`campaign_channels`のSELECTをクライアントスコープに変更、INSERT/UPDATEは代理店のみ；`production_costs`はSELECTを代理店・住宅会社どちらも可、書き込みは代理店のみ、spec §4.2.4「入力は代理店担当者が行う」）。
+  - `src/lib/campaigns/fieldKeys.ts`：入力項目キー一覧・ラベル（cost/impressions/clicks/followers/posts/views/inflow_rate）。
+  - `src/app/(agency)/agency/clients/[id]/campaigns/actions.ts`：`addCustomChannel`（施策マスタへの追加、required_fieldsは「費用を選べば費用のみ必須、他は任意」という決定済みルールに従い自動算出しユーザーには選ばせない）・`addProductionCost`・`deleteProductionCost`。
+  - `src/app/(agency)/agency/clients/[id]/campaigns/page.tsx`：「施策マスタ管理」パネル（クライアント固有施策の一覧・追加フォーム）・「制作・クリエイティブ費用」パネル（期間スコープの一覧・追加・削除・合計表示）を追加。施策一覧クエリもデフォルト17件＋このクライアント固有分（`client_id.is.null,client_id.eq.<id>`）に対応。
+- **検証**：使い捨てテストデータで、クライアント固有施策（地元フリーペーパー、費用のみ必須）の追加・可視性（追加したクライアントからは18件、無関係な別クライアントからは17件のまま＝カスタム施策は見えない）を確認。**別クライアント担当の代理店ユーザーからの`campaign_channels`更新がRLSで実際にブロックされること**（DB上の値が変更されていないことまで確認、UPDATE自体はエラーを返さず0件影響という形でブロックされる点に注意——最初は「エラーが返るはず」という誤ったテスト方法で誤検知したため、実際にDBの値を再取得して確認するテストに修正した）を確認。`production_costs`は住宅会社セッションから閲覧はできるが書き込みは拒否されることも確認。`npm run build`で全ルート確認済み。後片付け済み。
+- 実装：
+  - `src/app/(agency)/agency/clients/[id]/campaigns/page.tsx`：期間・拠点選択フォーム＋施策一覧（CTR/CPC/CPL表示）。Phase 1〜3で確認済みのモッククライアント（id: "1"/"2"）は既存の`CampaignsView`（モック）のまま維持し、実クライアントの場合のみ新しい実データ版を表示するハイブリッド構成（`[id]/layout.tsx`と同じ方針）。
+  - `src/app/(agency)/agency/clients/[id]/campaigns/entry/{page,actions}.tsx`：1施策・1期間・1拠点ぶんの入力フォーム（モーダルではなく専用ページ、理由：全17施策を1フォームに詰め込むと「反響数必須」が毎回全施策分要求されてしまい非現実的なため、1施策ずつ遷移する設計にした）。
+  - `src/lib/metrics/adMetrics.ts`：CTR/CPC/CPL算出・¥/%表示フォーマット。
+  - **実装中に見つけて対処した設計上の注意点**：`campaign_metrics`のUNIQUE制約は`location_id`のnull有無で2つの部分ユニークインデックスに分かれている（Phase 2で対応済み）ため、PostgRESTの`.upsert(onConflict:...)`では正しく指定できない。SELECTで既存行の有無を確認してからUPDATE/INSERTを切り替える方式で実装（`entry/actions.ts`）。
+- **検証**：使い捨てテストデータで、Google広告（全項目必須）の新規作成・既存行への正しい上書き（重複INSERTにならないこと）・`manually_overridden`フラグ、TVCM（表示回数・クリック数なしでも保存可）、SEO（オーガニック指標）の保存を確認。`npm run build`で全ルート確認済み。後片付け済み。
 
 ### Phase 6 — 広告API連携（フェーズドロールアウト）
 **ゴール**：📌 Google広告・Yahoo広告・Meta広告の OAuth 接続・自動同期・手動上書きが動作し、審査状況に応じた運用切り替えができる（spec §4.2.2）。
@@ -324,4 +479,28 @@ vercel.json         # Cron設定（E4）
 4. 各フェーズ末で完了条件と対応する受け入れ基準を実機チェックしてから次へ進む。
 5. D1 は解決済み方針（フェーズドロールアウト）で進行中。新たな ⚠️ が発生した場合は本書と spec.md 双方に追記して可視化し、対応するフェーズ着手前に確定させる。
 
-> 次アクション候補（2026-08-01時点）：①`middleware.ts` の追加とSupabase Authの有効化（Phase 3） → ②`agency_users`/`client_users` のサインアップ・招待フロー実装 → ③Vercel連携（まだ未実施） → ④各媒体のAPI利用申請の進捗確認（§0 D1、実装と並行・Metaは実績要件があるため優先度高）。冒頭「実装状況」の「▶ 次回のアクション」に詳細あり。
+> 次アクション候補（2026-08-24時点）：①未コミットのPhase 3〜8一式（認証・拠点管理・施策データ入力・追加ユーザー招待画面・広告API連携共通基盤・来場〜契約入力・目標設定等）をgitコミット（2026-08-10以降未コミットのまま、外部作業はすべて完了済みなので着手前にまずこれを推奨） → ②Phase 6〜8のUI実機目視確認（ブラウザでまだ未確認） → ③Phase 9（ダッシュボード、本プロダクトの中心機能）着手 → ④各媒体のAPI利用申請の進捗確認（§0 D1、実装と並行・Metaは実績要件があるため優先度高）。冒頭「実装状況」の「2026-08-24」の各節に詳細あり。
+
+---
+
+## 7. 2026-08-24 セッション終了メモ（トークン節約のためセッションリセット、次回はここから読む）
+
+**次回セッション開始時に最初に確認すること**：
+
+1. **⚠️最重要：Phase 3〜8の実装が2026-08-10以降まだ一度もgitコミットされていない。** `git status`で必ず確認すること（このセッション開始時点で既にこの状態だったが、セッション中も意図的にコミットを見送った——ユーザーの指示によるもので、忘れていたわけではない）。何かの拍子（`git checkout`等の破壊的操作）で失われるリスクがあるため、次回作業開始前にコミットすることを強く推奨する。
+2. **Phase 6（広告API連携）・Phase 7（来場〜契約入力）・Phase 8（目標設定）はいずれもロジックをコードレベル（`npx tsx --env-file=.env.local`での実データ検証・`npm run build`）で確認済みだが、ブラウザでの実機目視確認は一度も行っていない。** Reactコンポーネントの表示崩れ・レイアウト崩れ等は未確認のまま。
+3. **開発サーバーはこのセッション終了時に停止済み。** 次回`npm run dev`で再起動すること。
+4. 実データベースには本セッション終了時点で以下が存在する（テストデータはすべて後片付け済み、これらは実際の運用データ）：
+   - `clients`：「合同会社マーケティングデパートメント」1件のみ。
+   - `client_users`：`nagata@marketingdept-llc.com`・`keiri@marketingdept-llc.com`・`nagata+test3@marketingdept-llc.com`の3件（後者2件はユーザー自身が`/client/users`の動作確認中に実際に招待したもの、Claudeが作成したテストデータではない）。
+   - `agency_users`：`main@marketingdept-llc.com`（長田聖明）1件。
+   - `ad_connections`・`targets`・`funnel_metrics`：0件（テスト後にすべて削除済み、クリーンな状態）。
+
+**このセッションで完了した作業（詳細は本セクション以前の各日付節を参照）**：
+- Phase 3（認証）：招待メール送信の不具合3件を修正し、実機で招待〜ログインまで完全に確認。
+- `/agency/users`・`/client/users`（追加ユーザー招待・削除画面）を新規実装。
+- Phase 6（広告API連携）：OAuth接続・同期基盤・手動上書き保護・トークン暗号化を実装（各媒体の実API呼び出しはプレースホルダー）。`.env.local`の`TOKEN_ENCRYPTION_KEY`が空文字列のまま放置されていたのを発見し設定済み。
+- Phase 7（来場〜契約入力）：`/client/{visits,proposals,contracts}`を新規実装。
+- Phase 8（目標設定）：`/agency/clients/[id]/targets`を新規実装。
+
+**次にやること（優先順）**：①未コミット分のコミット、②Phase 6〜8のブラウザ実機確認、③Phase 9（ダッシュボード）着手——規模が大きいため、着手前に実装方針をユーザーと相談してから始めること。

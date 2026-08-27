@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase CLI local state
+supabase/.temp
+
+# Claude Code local tooling (skill cache, local settings)
+.agents/
+.claude/
+skills-lock.json

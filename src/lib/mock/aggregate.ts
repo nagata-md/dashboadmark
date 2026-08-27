@@ -18,6 +18,7 @@ import type {
   Target,
   TargetVsActualRow,
 } from "./types";
+import { KPI_LABELS } from "@/lib/targets/kpiLabels";
 
 export function ctr(clicks: number | null, impressions: number | null): number | null {
   if (!impressions || clicks == null) return null;
@@ -202,13 +203,7 @@ export function formatMonthLabel(periodStart: string): string {
   return `${y}年${Number(m)}月`;
 }
 
-/** 予実対比（spec §4.4/§4.5）で扱うKPI。DashboardView・レポート生成の両方で共通利用する */
-export const KPI_LABELS: { kpiKey: string; label: string }[] = [
-  { kpiKey: "leads_total", label: "合計反響数" },
-  { kpiKey: "visit_reservations", label: "来場予約数" },
-  { kpiKey: "visits", label: "来場数" },
-  { kpiKey: "contracts", label: "契約数" },
-];
+export { KPI_LABELS };
 
 export function buildTargetVsActual(stages: FunnelStages, targets: Target[], periodStart: string): TargetVsActualRow[] {
   const stageValues: Record<string, number> = {

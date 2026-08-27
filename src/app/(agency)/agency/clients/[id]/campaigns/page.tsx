@@ -1,17 +1,395 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Panel } from "@/components/ui/Panel";
+import { Table, Tr, Th, Td } from "@/components/ui/Table";
+import { FormRow } from "@/components/ui/FormRow";
+import { Button } from "@/components/ui/Button";
 import { CampaignsView } from "@/components/campaigns/CampaignsView";
+import { RealAdConnections } from "@/components/ads/RealAdConnections";
 import { getClient } from "@/lib/mock/data";
+import { createClient } from "@/lib/supabase/server";
+import { resolvePeriod, type PeriodParams } from "@/lib/campaigns/period";
+import { FIELD_KEYS, FIELD_LABELS } from "@/lib/campaigns/fieldKeys";
+import {
+  calcCpc,
+  calcCpl,
+  calcCtr,
+  formatPercent,
+  formatYen,
+} from "@/lib/metrics/adMetrics";
+import {
+  addCustomChannel,
+  addProductionCost,
+  deleteProductionCost,
+  revertToApiValue,
+} from "./actions";
 
-export default async function AgencyCampaignsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const client = getClient(id);
-  if (!client) notFound();
+export const metadata = {
+  title: "施策データ | 住宅マーケティング数値ダッシュボード（仮称）",
+};
+
+const AD_ERROR_MESSAGES: Record<string, string> = {
+  not_authorized: "権限エラーが発生しました。管理者にお問い合わせください。",
+  missing_client: "クライアント情報が取得できませんでした。",
+  oauth_state_invalid: "接続情報の有効期限が切れました。もう一度お試しください。",
+  oauth_exchange_failed: "OAuth接続に失敗しました。時間をおいて再度お試しください。",
+  oauth_save_failed: "接続情報の保存に失敗しました。時間をおいて再度お試しください。",
+  sync_failed: "同期に失敗しました。時間をおいて再度お試しください。",
+};
+
+const AD_SUCCESS_MESSAGES: Record<string, string> = {
+  ad_connected: "広告アカウントを接続しました。",
+  synced: "同期を実行しました。",
+};
+
+type SearchParams = PeriodParams & {
+  locationId?: string;
+  error?: string;
+  success?: string;
+};
+
+// spec §4.2.1（施策データ手動入力）・§4.2.3（クライアント固有施策）・
+// §4.2.4（制作・クリエイティブ費用）。
+export default async function AgencyCampaignsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<SearchParams>;
+}) {
+  const { id: clientId } = await params;
+
+  // Phase 1〜3で確認済みのモッククライアント（id: "1"/"2"）はモック実装のまま維持する。
+  if (getClient(clientId)) {
+    return (
+      <>
+        <PageHeader title="施策データ" eyebrow="CAMPAIGNS" />
+        <CampaignsView clientId={clientId} />
+      </>
+    );
+  }
+
+  const supabase = await createClient();
+  const { data: realClient } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (!realClient) notFound();
+
+  const sp = await searchParams;
+  const period = resolvePeriod(sp);
+  const locationId = sp.locationId && sp.locationId !== "" ? sp.locationId : null;
+
+  const { data: locations } = await supabase
+    .from("locations")
+    .select("id, name")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true });
+
+  // デフォルト17施策（client_id is null）＋このクライアント固有の追加施策（spec §4.2.3）。
+  const { data: channels } = await supabase
+    .from("campaign_channels")
+    .select("id, name, type, client_id, enabled_fields")
+    .or(`client_id.is.null,client_id.eq.${clientId}`)
+    .order("sort_order", { ascending: true });
+
+  const customChannels = (channels ?? []).filter((c) => c.client_id !== null);
+
+  let metricsByChannel = new Map<
+    string,
+    {
+      cost: number | null;
+      impressions: number | null;
+      clicks: number | null;
+      leads: number | null;
+      source: string;
+      manually_overridden: boolean;
+    }
+  >();
+  let productionCosts: { id: string; item_name: string; amount: number }[] = [];
+
+  if (period) {
+    let metricsQuery = supabase
+      .from("campaign_metrics")
+      .select("channel_id, cost, impressions, clicks, leads, source, manually_overridden")
+      .eq("client_id", clientId)
+      .eq("period_type", period.periodType)
+      .eq("period_start", period.periodStart);
+    metricsQuery = locationId
+      ? metricsQuery.eq("location_id", locationId)
+      : metricsQuery.is("location_id", null);
+    const { data: metrics } = await metricsQuery;
+    metricsByChannel = new Map((metrics ?? []).map((m) => [m.channel_id, m]));
+
+    let costsQuery = supabase
+      .from("production_costs")
+      .select("id, item_name, amount")
+      .eq("client_id", clientId)
+      .eq("period_type", period.periodType)
+      .eq("period_start", period.periodStart);
+    costsQuery = locationId
+      ? costsQuery.eq("location_id", locationId)
+      : costsQuery.is("location_id", null);
+    const { data: costs } = await costsQuery;
+    productionCosts = costs ?? [];
+  }
+
+  const productionCostTotal = productionCosts.reduce(
+    (sum, c) => sum + Number(c.amount),
+    0,
+  );
+
+  const periodQuery = period
+    ? `periodType=${period.periodType}&${
+        period.periodType === "monthly"
+          ? `periodMonth=${sp.periodMonth}`
+          : `periodWeekStart=${sp.periodWeekStart}`
+      }&locationId=${locationId ?? ""}`
+    : "";
+
+  const adErrorMessage = sp.error ? AD_ERROR_MESSAGES[sp.error] : undefined;
+  const adSuccessMessage = sp.success ? AD_SUCCESS_MESSAGES[sp.success] : undefined;
+  const returnTo = `/agency/clients/${clientId}/campaigns${periodQuery ? `?${periodQuery}` : ""}`;
 
   return (
     <>
       <PageHeader title="施策データ" eyebrow="CAMPAIGNS" />
-      <CampaignsView clientId={id} />
+
+      {adSuccessMessage && (
+        <p className="mb-4 rounded-control bg-success-tint px-3 py-2 text-xs text-success">
+          {adSuccessMessage}
+        </p>
+      )}
+      {adErrorMessage && (
+        <p className="mb-4 rounded-control bg-danger-tint px-3 py-2 text-xs text-danger">
+          {adErrorMessage}
+        </p>
+      )}
+
+      <RealAdConnections clientId={clientId} returnTo={returnTo} />
+
+      <Panel title="期間・拠点を選択" className="mb-4 max-w-[560px]">
+        <form method="get" className="flex flex-wrap items-end gap-4">
+          <FormRow label="期間種別" className="mb-0">
+            <select name="periodType" defaultValue={period?.periodType ?? "monthly"}>
+              <option value="monthly">月次</option>
+              <option value="weekly">週次</option>
+            </select>
+          </FormRow>
+          <FormRow label="対象月（月次の場合）" className="mb-0">
+            <input
+              type="month"
+              name="periodMonth"
+              defaultValue={sp.periodMonth}
+            />
+          </FormRow>
+          <FormRow label="週の開始日（週次の場合）" className="mb-0">
+            <input
+              type="date"
+              name="periodWeekStart"
+              defaultValue={sp.periodWeekStart}
+            />
+          </FormRow>
+          <FormRow label="拠点" className="mb-0">
+            <select name="locationId" defaultValue={locationId ?? ""}>
+              <option value="">全社共通</option>
+              {(locations ?? []).map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          </FormRow>
+          <Button type="submit" variant="primary">
+            表示
+          </Button>
+        </form>
+      </Panel>
+
+      {period ? (
+        <>
+          <Panel title="施策一覧" className="mb-4">
+            <Table>
+              <thead>
+                <Tr>
+                  <Th>施策</Th>
+                  <Th>費用</Th>
+                  <Th>反響数</Th>
+                  <Th>CTR</Th>
+                  <Th>CPC</Th>
+                  <Th>CPL</Th>
+                  <Th />
+                </Tr>
+              </thead>
+              <tbody>
+                {(channels ?? []).map((channel) => {
+                  const m = metricsByChannel.get(channel.id);
+                  const isAd = channel.type === "ad";
+                  return (
+                    <Tr key={channel.id}>
+                      <Td className="font-semibold text-navy">{channel.name}</Td>
+                      <Td>{m ? formatYen(m.cost) : "-"}</Td>
+                      <Td>{m?.leads ?? "-"}</Td>
+                      <Td>{isAd ? formatPercent(calcCtr(m?.clicks ?? null, m?.impressions ?? null)) : "-"}</Td>
+                      <Td>{isAd ? formatYen(calcCpc(m?.cost ?? null, m?.clicks ?? null)) : "-"}</Td>
+                      <Td>{isAd ? formatYen(calcCpl(m?.cost ?? null, m?.leads ?? null)) : "-"}</Td>
+                      <Td>
+                        <div className="flex items-center gap-3">
+                          <Link
+                            href={`/agency/clients/${clientId}/campaigns/entry?channelId=${channel.id}&${periodQuery}`}
+                            className="text-accent hover:underline"
+                          >
+                            {m ? "編集" : "入力"}
+                          </Link>
+                          {m?.source === "api" && m.manually_overridden && (
+                            <form
+                              action={revertToApiValue.bind(null, clientId, channel.id)}
+                            >
+                              <button
+                                type="submit"
+                                className="text-xs text-gray-500 hover:underline"
+                              >
+                                APIの値に戻す
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </Panel>
+
+          <Panel title="制作・クリエイティブ費用" className="mb-4 max-w-[560px]">
+            {productionCosts.length > 0 ? (
+              <Table className="mb-4">
+                <thead>
+                  <Tr>
+                    <Th>項目名</Th>
+                    <Th>金額</Th>
+                    <Th />
+                  </Tr>
+                </thead>
+                <tbody>
+                  {productionCosts.map((c) => (
+                    <Tr key={c.id}>
+                      <Td>{c.item_name}</Td>
+                      <Td>{formatYen(c.amount)}</Td>
+                      <Td>
+                        <form
+                          action={deleteProductionCost.bind(null, clientId, c.id)}
+                        >
+                          <button
+                            type="submit"
+                            className="text-xs text-danger hover:underline"
+                          >
+                            削除
+                          </button>
+                        </form>
+                      </Td>
+                    </Tr>
+                  ))}
+                  <Tr>
+                    <Td className="font-semibold text-navy">合計</Td>
+                    <Td className="font-semibold text-navy">
+                      {formatYen(productionCostTotal)}
+                    </Td>
+                    <Td />
+                  </Tr>
+                </tbody>
+              </Table>
+            ) : (
+              <p className="mb-4 text-sm text-gray-500">
+                この期間の制作・クリエイティブ費用はまだありません。
+              </p>
+            )}
+            <form action={addProductionCost} className="flex flex-wrap items-end gap-4">
+              <input type="hidden" name="clientId" value={clientId} />
+              <input type="hidden" name="locationId" value={locationId ?? ""} />
+              <input type="hidden" name="periodType" value={period.periodType} />
+              {period.periodType === "monthly" ? (
+                <input type="hidden" name="periodMonth" value={sp.periodMonth} />
+              ) : (
+                <input type="hidden" name="periodWeekStart" value={sp.periodWeekStart} />
+              )}
+              <FormRow label="項目名" className="mb-0">
+                <input type="text" name="itemName" required />
+              </FormRow>
+              <FormRow label="金額（円）" className="mb-0">
+                <input type="number" name="amount" min={0} required />
+              </FormRow>
+              <Button type="submit" variant="primary">
+                追加
+              </Button>
+            </form>
+          </Panel>
+        </>
+      ) : (
+        <p className="mb-4 text-sm text-gray-500">
+          期間・拠点を選択して「表示」を押すと、施策一覧・制作費用が表示されます。
+        </p>
+      )}
+
+      <Panel title="施策マスタ管理（クライアント固有）">
+        {customChannels.length > 0 ? (
+          <Table className="mb-4">
+            <thead>
+              <Tr>
+                <Th>施策名</Th>
+                <Th>種別</Th>
+                <Th>入力項目</Th>
+              </Tr>
+            </thead>
+            <tbody>
+              {customChannels.map((c) => (
+                <Tr key={c.id}>
+                  <Td className="font-semibold text-navy">{c.name}</Td>
+                  <Td>{c.type === "ad" ? "広告" : "運用"}</Td>
+                  <Td>
+                    {(c.enabled_fields ?? [])
+                      .map((key: string) => FIELD_LABELS[key as keyof typeof FIELD_LABELS])
+                      .join("・")}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <p className="mb-4 text-sm text-gray-500">
+            このクライアント固有の施策はまだ追加されていません。
+          </p>
+        )}
+
+        <form action={addCustomChannel} className="max-w-[420px]">
+          <input type="hidden" name="clientId" value={clientId} />
+          <FormRow label="施策名">
+            <input type="text" name="name" required />
+          </FormRow>
+          <FormRow label="種別">
+            <select name="type">
+              <option value="ad">広告</option>
+              <option value="organic">運用（オーガニック）</option>
+            </select>
+          </FormRow>
+          <FormRow label="入力項目（反響数は常に必須のため対象外）">
+            <div className="flex flex-col gap-1.5">
+              {FIELD_KEYS.map((key) => (
+                <label key={key} className="flex items-center gap-1.5 text-sm">
+                  <input type="checkbox" name={`field_${key}`} />
+                  {FIELD_LABELS[key]}
+                </label>
+              ))}
+            </div>
+          </FormRow>
+          <Button type="submit" variant="primary">
+            追加
+          </Button>
+        </form>
+      </Panel>
     </>
   );
 }
