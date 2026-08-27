@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { Panel } from "@/components/ui/Panel";
 import { Table, Td, Th, Tr } from "@/components/ui/Table";
-import { Button } from "@/components/ui/Button";
-import { FormRow } from "@/components/ui/FormRow";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
 import { ChannelBreakdownTable } from "@/components/dashboard/ChannelBreakdownTable";
 import { LocationBreakdown } from "@/components/dashboard/LocationBreakdown";
@@ -12,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatYen } from "@/lib/metrics/adMetrics";
 import type { ByType, ReportPeriodSnapshot } from "@/lib/mock/types";
 import { PrintButton } from "./PrintButton";
+import { ReportGenerateForm } from "./ReportGenerateForm";
 
 export interface RealReportsSearchParams {
   selected?: string;
@@ -72,56 +71,7 @@ export async function RealReports({
       )}
 
       <Panel title="レポート生成">
-        <form action={generateAction} className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <FormRow label="期間種別" className="mb-0">
-              <select name="periodType" defaultValue="monthly">
-                <option value="monthly">月次</option>
-                <option value="weekly">週次</option>
-                <option value="custom">カスタム（任意の期間）</option>
-              </select>
-            </FormRow>
-            <FormRow label="対象月（月次の場合）" className="mb-0">
-              <input type="month" name="periodMonth" defaultValue={todayMonthKey()} />
-            </FormRow>
-            <FormRow label="週の開始日（週次の場合）" className="mb-0">
-              <input type="date" name="periodWeekStart" />
-            </FormRow>
-            <FormRow label="開始日〜終了日（カスタムの場合）" className="mb-0">
-              <div className="flex items-center gap-2">
-                <input type="date" name="customStart" />
-                <span className="text-gray-500">〜</span>
-                <input type="date" name="customEnd" />
-              </div>
-            </FormRow>
-          </div>
-
-          <label className="flex items-center gap-1.5 text-xs text-gray-700">
-            <input type="checkbox" name="includeCompare" value="on" />
-            比較期間を含める（期間種別は基準期間と同じものが使われます）
-          </label>
-          <div className="flex flex-wrap items-end gap-3">
-            <FormRow label="比較：対象月" className="mb-0">
-              <input type="month" name="comparePeriodMonth" />
-            </FormRow>
-            <FormRow label="比較：週の開始日" className="mb-0">
-              <input type="date" name="compareWeekStart" />
-            </FormRow>
-            <FormRow label="比較：開始日〜終了日" className="mb-0">
-              <div className="flex items-center gap-2">
-                <input type="date" name="compareCustomStart" />
-                <span className="text-gray-500">〜</span>
-                <input type="date" name="compareCustomEnd" />
-              </div>
-            </FormRow>
-          </div>
-
-          <div>
-            <Button type="submit" variant="primary">
-              レポート生成
-            </Button>
-          </div>
-        </form>
+        <ReportGenerateForm generateAction={generateAction} defaultMonth={todayMonthKey()} />
       </Panel>
 
       <Panel title="レポート一覧">

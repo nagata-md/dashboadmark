@@ -6,6 +6,7 @@ import { Table, Tr, Th, Td } from "@/components/ui/Table";
 import { FormRow } from "@/components/ui/FormRow";
 import { Button } from "@/components/ui/Button";
 import { CampaignsView } from "@/components/campaigns/CampaignsView";
+import { PeriodTypeFields } from "@/components/forms/PeriodTypeFields";
 import { getClient } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
 import { isChannelVisible } from "@/lib/campaigns/channelVisibility";
@@ -153,26 +154,11 @@ export default async function AgencyCampaignsPage({
 
       <Panel title="期間・拠点を選択" className="mb-4 max-w-[560px]">
         <form method="get" className="flex flex-wrap items-end gap-4">
-          <FormRow label="期間種別" className="mb-0">
-            <select name="periodType" defaultValue={period?.periodType ?? "monthly"}>
-              <option value="monthly">月次</option>
-              <option value="weekly">週次</option>
-            </select>
-          </FormRow>
-          <FormRow label="対象月（月次の場合）" className="mb-0">
-            <input
-              type="month"
-              name="periodMonth"
-              defaultValue={sp.periodMonth}
-            />
-          </FormRow>
-          <FormRow label="週の開始日（週次の場合）" className="mb-0">
-            <input
-              type="date"
-              name="periodWeekStart"
-              defaultValue={sp.periodWeekStart}
-            />
-          </FormRow>
+          <PeriodTypeFields
+            defaultType={period?.periodType ?? "monthly"}
+            defaultMonth={sp.periodMonth}
+            defaultWeekStart={sp.periodWeekStart}
+          />
           <FormRow label="拠点" className="mb-0">
             <select name="locationId" defaultValue={locationId ?? ""}>
               <option value="">全社共通</option>

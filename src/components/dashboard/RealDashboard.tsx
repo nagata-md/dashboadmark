@@ -1,6 +1,4 @@
 import { Panel } from "@/components/ui/Panel";
-import { FormRow } from "@/components/ui/FormRow";
-import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
 import { loadClientDataset } from "@/lib/metrics/loadClientDataset";
 import {
@@ -21,6 +19,7 @@ import { ChannelBreakdownTable } from "./ChannelBreakdownTable";
 import { LocationBreakdown } from "./LocationBreakdown";
 import { TargetVsActual } from "./TargetVsActual";
 import { PeriodCompare } from "./PeriodCompare";
+import { DashboardPeriodForm } from "./DashboardPeriodForm";
 
 const TREND_MONTHS = 6;
 
@@ -88,21 +87,7 @@ export async function RealDashboard({
   return (
     <div className="flex flex-col gap-5">
       <Panel>
-        <form method="get" className="flex flex-wrap items-end gap-4">
-          <FormRow label="対象期間（月次）" className="mb-0">
-            <input type="month" name="periodMonth" defaultValue={periodMonth} />
-          </FormRow>
-          <label className="flex items-center gap-1.5 pb-1.5 text-xs text-gray-700">
-            <input type="checkbox" name="showCompare" defaultChecked={showCompare} value="on" />
-            期間比較を表示する
-          </label>
-          <FormRow label="比較期間" className="mb-0">
-            <input type="month" name="comparePeriodMonth" defaultValue={comparePeriodMonth} />
-          </FormRow>
-          <Button type="submit" variant="primary">
-            表示
-          </Button>
-        </form>
+        <DashboardPeriodForm periodMonth={periodMonth} showCompare={showCompare} comparePeriodMonth={comparePeriodMonth} />
       </Panel>
 
       <Panel title="ファネル図">
