@@ -12,10 +12,13 @@ import { createClient } from "@/lib/supabase/server";
 // モックから、実際に /agency/clients/new で作成したクライアントの場合は
 // Supabase から名前を取得するハイブリッド構成（Phase 5以降でモック側を置き換えるまでの過渡的対応）。
 
+// 2026-08-27方針転換（improvement.md §1-2）：来場〜契約入力を代理店側からも行えるようにした
+// （従来は住宅会社専用だった、spec.md §4.3参照）。
 function navItemsFor(id: string): SidebarNavItem[] {
   return [
     { href: `/agency/clients/${id}/dashboard`, label: "ダッシュボード" },
     { href: `/agency/clients/${id}/campaigns`, label: "施策データ" },
+    { href: `/agency/clients/${id}/funnel`, label: "来場〜契約入力" },
     { href: `/agency/clients/${id}/targets`, label: "目標設定" },
     { href: `/agency/clients/${id}/locations`, label: "拠点管理" },
     { href: `/agency/clients/${id}/reports`, label: "レポート" },

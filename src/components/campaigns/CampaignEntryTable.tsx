@@ -26,6 +26,7 @@ export function CampaignEntryTable({
   rows,
   saveAction,
   clientId,
+  basePath,
   locationId,
   periodType,
   periodMonth,
@@ -34,6 +35,7 @@ export function CampaignEntryTable({
   rows: CampaignEntryRow[];
   saveAction: (formData: FormData) => Promise<void>;
   clientId: string;
+  basePath: string;
   locationId: string | null;
   periodType: "monthly" | "weekly";
   periodMonth?: string;
@@ -94,6 +96,7 @@ export function CampaignEntryTable({
       {openRow && (
         <CampaignEditModal
           clientId={clientId}
+          basePath={basePath}
           channelId={openRow.channelId}
           channelName={openRow.channelName}
           locationId={locationId}

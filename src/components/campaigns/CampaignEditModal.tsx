@@ -5,6 +5,11 @@ import { FormRow } from "@/components/ui/FormRow";
 import { Button } from "@/components/ui/Button";
 import { FIELD_LABELS, type FieldKey } from "@/lib/campaigns/fieldKeys";
 
+const ACTOR_LABELS: Record<string, string> = {
+  agency: "代理店",
+  client: "住宅会社",
+};
+
 export interface CampaignMetricValues {
   cost: number | null;
   impressions: number | null;
@@ -14,6 +19,8 @@ export interface CampaignMetricValues {
   views: number | null;
   inflow_rate: number | null;
   leads: number | null;
+  updated_by_type: string | null;
+  updated_at: string | null;
 }
 
 // improvement.md §1-1（2026-08-27方針決定）：2026-08-10のモックアップ（CampaignsView.tsx）で
@@ -23,6 +30,7 @@ export interface CampaignMetricValues {
 // そのまま使い、hidden inputで期間・拠点・施策IDを渡す方式もentryページと揃える。
 export function CampaignEditModal({
   clientId,
+  basePath,
   channelId,
   channelName,
   locationId,
@@ -36,6 +44,7 @@ export function CampaignEditModal({
   onClose,
 }: {
   clientId: string;
+  basePath: string;
   channelId: string;
   channelName: string;
   locationId: string | null;
@@ -48,10 +57,17 @@ export function CampaignEditModal({
   saveAction: (formData: FormData) => Promise<void>;
   onClose: () => void;
 }) {
+  const lastUpdatedLabel =
+    existing?.updated_at && existing.updated_by_type
+      ? `最終更新: ${ACTOR_LABELS[existing.updated_by_type] ?? existing.updated_by_type} · ${new Date(existing.updated_at).toLocaleString("ja-JP")}`
+      : null;
+
   return (
     <Modal title={`施策データ${existing ? "修正" : "入力"}：${channelName}`} onClose={onClose}>
+      {lastUpdatedLabel && <p className="mb-3.5 text-xs text-gray-500">{lastUpdatedLabel}</p>}
       <form action={saveAction}>
         <input type="hidden" name="clientId" value={clientId} />
+        <input type="hidden" name="basePath" value={basePath} />
         <input type="hidden" name="channelId" value={channelId} />
         <input type="hidden" name="locationId" value={locationId ?? ""} />
         <input type="hidden" name="periodType" value={periodType} />
