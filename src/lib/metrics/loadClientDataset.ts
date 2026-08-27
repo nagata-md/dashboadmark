@@ -3,7 +3,15 @@
 // 集計）の両方が同じ取得結果を使い回せるよう共通化している。RLSスコープのクライアント
 // （@/lib/supabase/server の createClient()）で呼ぶ想定（他の実データ画面と同じ規約）。
 import type { createClient } from "@/lib/supabase/server";
-import type { CampaignMetricDbRow, ChannelDbRow, FunnelMetricDbRow, LocationDbRow, ProductionCostDbRow, TargetDbRow } from "./aggregate";
+import type {
+  CampaignMetricDbRow,
+  CampaignTargetDbRow,
+  ChannelDbRow,
+  FunnelMetricDbRow,
+  LocationDbRow,
+  ProductionCostDbRow,
+  TargetDbRow,
+} from "./aggregate";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -12,12 +20,13 @@ export interface ClientDataset {
   funnelRows: FunnelMetricDbRow[];
   productionCosts: ProductionCostDbRow[];
   targets: TargetDbRow[];
+  campaignTargets: CampaignTargetDbRow[];
   channels: ChannelDbRow[];
   locations: LocationDbRow[];
 }
 
 export async function loadClientDataset(supabase: SupabaseServerClient, clientId: string): Promise<ClientDataset> {
-  const [campaignRes, funnelRes, costRes, targetRes, channelRes, locationRes] = await Promise.all([
+  const [campaignRes, funnelRes, costRes, targetRes, campaignTargetRes, channelRes, locationRes] = await Promise.all([
     supabase
       .from("campaign_metrics")
       .select(
@@ -34,6 +43,10 @@ export async function loadClientDataset(supabase: SupabaseServerClient, clientId
       .eq("client_id", clientId),
     supabase.from("targets").select("kpi_key, period_start, target_value").eq("client_id", clientId),
     supabase
+      .from("campaign_targets")
+      .select("channel_id, location_id, period_start, target_leads, budget_amount")
+      .eq("client_id", clientId),
+    supabase
       .from("campaign_channels")
       .select("id, name, type, method, sort_order")
       .or(`client_id.is.null,client_id.eq.${clientId}`)
@@ -46,6 +59,7 @@ export async function loadClientDataset(supabase: SupabaseServerClient, clientId
     funnelRows: funnelRes.data ?? [],
     productionCosts: costRes.data ?? [],
     targets: targetRes.data ?? [],
+    campaignTargets: campaignTargetRes.data ?? [],
     channels: channelRes.data ?? [],
     locations: locationRes.data ?? [],
   };

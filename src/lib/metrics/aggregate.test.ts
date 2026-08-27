@@ -5,9 +5,11 @@ import {
   buildLocationBreakdown,
   buildTargetVsActual,
   buildTrend,
+  sumCampaignTargetLeads,
   sumProductionCost,
   toChannelLeadsList,
   type CampaignMetricDbRow,
+  type CampaignTargetDbRow,
   type ChannelDbRow,
   type FunnelMetricDbRow,
   type LocationDbRow,
@@ -176,19 +178,48 @@ describe("buildTrend", () => {
   });
 });
 
+describe("sumCampaignTargetLeads", () => {
+  it("拠点別＋全社共通の行を自動合算する（会社全体の目標は独立入力ではなくロールアップ、§9-1）", () => {
+    const rows: CampaignTargetDbRow[] = [
+      { channel_id: "ch-google", location_id: "loc-a", period_start: "2026-04-01", target_leads: 20, budget_amount: 100000 },
+      { channel_id: "ch-yahoo", location_id: null, period_start: "2026-04-01", target_leads: 10, budget_amount: 50000 },
+    ];
+    expect(sumCampaignTargetLeads(rows, monthRange("2026-04"))).toBe(30);
+  });
+
+  it("未入力（null）のtarget_leadsは0扱いで合算される", () => {
+    const rows: CampaignTargetDbRow[] = [
+      { channel_id: "ch-google", location_id: null, period_start: "2026-04-01", target_leads: null, budget_amount: 100000 },
+    ];
+    expect(sumCampaignTargetLeads(rows, monthRange("2026-04"))).toBe(0);
+  });
+
+  it("範囲と重なる行が1件も無ければnull（未設定）", () => {
+    const rows: CampaignTargetDbRow[] = [
+      { channel_id: "ch-google", location_id: null, period_start: "2026-01-01", target_leads: 20, budget_amount: null },
+    ];
+    expect(sumCampaignTargetLeads(rows, monthRange("2026-04"))).toBeNull();
+  });
+});
+
 describe("buildTargetVsActual", () => {
-  it("一致する月の目標値を引き当てる", () => {
-    const targets: TargetDbRow[] = [{ kpi_key: "leads_total", period_start: "2026-04-01", target_value: 50 }];
+  it("一致する月の目標値を引き当てる（合計反響数はcampaign_targetsのロールアップ）", () => {
+    const targets: TargetDbRow[] = [{ kpi_key: "visits", period_start: "2026-04-01", target_value: 12 }];
+    const campaignTargets: CampaignTargetDbRow[] = [
+      { channel_id: "ch-google", location_id: null, period_start: "2026-04-01", target_leads: 50, budget_amount: 200000 },
+    ];
     const stages = buildFunnelStages([campaignRow({ leads: 30 })], [], monthRange("2026-04"));
-    const rows = buildTargetVsActual(stages, targets, monthRange("2026-04"));
+    const rows = buildTargetVsActual(stages, targets, campaignTargets, monthRange("2026-04"));
     const leadsRow = rows.find((r) => r.kpiKey === "leads_total");
     expect(leadsRow?.actual).toBe(30);
     expect(leadsRow?.target).toBe(50);
+    const visitsRow = rows.find((r) => r.kpiKey === "visits");
+    expect(visitsRow?.target).toBe(12);
   });
 
   it("目標が設定されていないKPIはtarget:nullになる", () => {
     const stages = buildFunnelStages([], [], monthRange("2026-04"));
-    const rows = buildTargetVsActual(stages, [], monthRange("2026-04"));
+    const rows = buildTargetVsActual(stages, [], [], monthRange("2026-04"));
     expect(rows.every((r) => r.target === null)).toBe(true);
   });
 });

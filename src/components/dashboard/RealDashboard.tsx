@@ -65,7 +65,7 @@ export async function RealDashboard({
   const funnel = buildFunnelStages(dataset.campaignRows, dataset.funnelRows, range);
   const channelBreakdown = buildChannelBreakdown(dataset.campaignRows, dataset.channels, range);
   const locationBreakdown = buildLocationBreakdown(dataset.campaignRows, dataset.funnelRows, dataset.locations, range);
-  const targetVsActual = buildTargetVsActual(funnel, dataset.targets, range);
+  const targetVsActual = buildTargetVsActual(funnel, dataset.targets, dataset.campaignTargets, range);
   const productionCostTotal = sumProductionCost(dataset.productionCosts, range);
   const trend = buildTrend(dataset.campaignRows, dataset.funnelRows, lastNMonthKeys(periodMonth, TREND_MONTHS));
 

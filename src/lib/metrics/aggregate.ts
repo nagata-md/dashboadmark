@@ -69,6 +69,14 @@ export interface TargetDbRow {
   target_value: number;
 }
 
+export interface CampaignTargetDbRow {
+  channel_id: string;
+  location_id: string | null;
+  period_start: string;
+  target_leads: number | null;
+  budget_amount: number | null;
+}
+
 interface Weighted<T> {
   row: T;
   weight: number;
@@ -244,23 +252,48 @@ export function buildTrend(
   });
 }
 
+/** チャネル別反響数目標（campaign_targets、月次のみ）の期間内合算。会社全体の目標は
+ * 拠点別＋全社共通(location_id is null)行の自動合算として算出する方針のため（§9-1）、
+ * この関数には location でフィルタしていない全行を渡す。range と重なる行が1件も無ければ
+ * null（未設定）、それ以外は各行の target_leads（未入力はNULL=0扱い）を日数按分して合算する。 */
+export function sumCampaignTargetLeads(rows: CampaignTargetDbRow[], range: DateRange): number | null {
+  const weighted = withWeights(
+    rows.map((r) => ({ ...r, period_type: "monthly" as PeriodType })),
+    range,
+  );
+  if (weighted.length === 0) return null;
+  return weighted.reduce((acc, w) => acc + (w.row.target_leads ?? 0) * w.weight, 0);
+}
+
 /** 予実対比（spec §4.4/§4.5）。目標は月次のみ（targets.period_start=月初日）のため、target の
  * 「区間」はその月のカレンダー月として扱い、range と重なる分を日数按分して合算する。
  * range がちょうど1つの月と一致する（ダッシュボードの通常利用）場合は単純に一致月の値になる。
  * range が複数月にまたがる場合（レポートの週次/カスタム期間）は近似値になる点に注意
- * （spec に明記が無い部分の合理的な拡張。目標自体が月次単位でしか設定できないため）。 */
+ * （spec に明記が無い部分の合理的な拡張。目標自体が月次単位でしか設定できないため）。
+ *
+ * 「合計反響数」は2026-08-27の設計変更（§9-1・§9-2）でtargetsテーブルから
+ * campaign_targets（チャネル別・広告施策のみ）のロールアップに置き換わった。実績側の
+ * stages.leads は引き続き全チャネル（広告＋運用）の合算のままとする（既存ダッシュボードの
+ * 実績値の定義を変更しないため）——目標が広告施策のみを対象とする一方、実績は運用施策分も
+ * 含む点に差があるが、目標未設定時にNULLで表示されるため実用上の実害はない。 */
 export function buildTargetVsActual(
   stages: FunnelStages,
   targets: TargetDbRow[],
+  campaignTargets: CampaignTargetDbRow[],
   range: DateRange,
 ): TargetVsActualRow[] {
   const stageValues: Record<string, number> = {
-    leads_total: stages.leads,
     visit_reservations: stages.visitReservations,
     visits: stages.visits,
     contracts: stages.contracts,
   };
-  return KPI_LABELS.map(({ kpiKey, label }) => {
+  const leadsRow: TargetVsActualRow = {
+    kpiKey: "leads_total",
+    label: "合計反響数",
+    actual: stages.leads,
+    target: sumCampaignTargetLeads(campaignTargets, range),
+  };
+  const rest = KPI_LABELS.map(({ kpiKey, label }) => {
     const rows = targets.filter((t) => t.kpi_key === kpiKey);
     const weighted = withWeights(
       rows.map((r) => ({ ...r, period_type: "monthly" as PeriodType })),
@@ -269,5 +302,6 @@ export function buildTargetVsActual(
     const target = weighted.length === 0 ? null : weighted.reduce((acc, w) => acc + w.row.target_value * w.weight, 0);
     return { kpiKey, label, actual: stageValues[kpiKey], target };
   });
+  return [leadsRow, ...rest];
 }
 

@@ -9,7 +9,7 @@
 
 ## 実装状況（2026-08-27 更新）
 
-> 2026-08-27時点の到達点・積み残し・留意点は本書末尾「## 9. 2026-08-27（続き）セッション終了メモ」を参照（**次回はここから読む**）。「## 8.」は同日の前のセッション（Phase 9・10実装）の記録として履歴保持する。それ以前は2026-08-01・2026-08-20・2026-08-24時点の記録（履歴として保持）。
+> 2026-08-27時点の到達点・積み残し・留意点は本書末尾「## 10. 2026-08-27（続き・3セッション目）セッション終了メモ」を参照（**次回はここから読む**）。「## 9.」「## 8.」は同日の前のセッションの記録として履歴保持する。それ以前は2026-08-01・2026-08-20・2026-08-24時点の記録（履歴として保持）。
 
 Phase 0 完了。Phase 1 進行中（共通レイアウト・UIコンポーネントが完了、残りはPhase 4以降で実画面ができ次第 `dev-preview` を削除するのみ）。
 
@@ -37,7 +37,7 @@ Phase 2（データ層）も完了。Supabaseは新しいAPIキー体系（Publi
 | 5 施策データ手動入力 | ✅ 完了（デフォルト17施策・クライアント固有施策・制作費用すべて実装済み） |
 | 6 広告API連携（フェーズドロールアウト） | 🟡 進行中（2026-08-24、共通基盤完了・各媒体APIコード呼び出しはプレースホルダー） |
 | 7 来場〜契約データ入力（住宅会社側） | ✅ 完了（2026-08-24） |
-| 8 目標設定・予実管理 | ✅ 完了（2026-08-24、目標設定画面のみ。予実対比の表示自体はPhase 9）。**⚠️2026-08-27追記：`docs/improvement.md`の検討により、この画面のスコープ自体を大きく再設計する方針が決定済み（チャネル別反響目標・予算・年間一括入力等）。DB設計は完了（未適用）・実データ接続は未着手。詳細・次の一歩は本書「## 9.」節を参照** |
+| 8 目標設定・予実管理 | ✅ 完了（2026-08-24、目標設定画面のみ。予実対比の表示自体はPhase 9）。**⚠️2026-08-27追記：`docs/improvement.md`の検討により、この画面のスコープを再設計（チャネル別反響目標・予算・年間一括入力等）。DB設計・実データ接続とも完了（同日中の別セッション、本書「## 10.」節参照）。マイグレーション適用済み** |
 | 9 ダッシュボード | ✅ 完了（2026-08-27、実データ集計エンジン。住宅会社側・代理店側とも実機確認済み） |
 | 10 レポート機能 | 🟡 実質完了（2026-08-27、レポート生成・保存・閲覧は実装・実機確認済み。PDFは従来通りブラウザ印刷で代替、サーバーサイド生成（E5）は未着手） |
 | 11 仕上げ | 未着手 |
@@ -593,3 +593,41 @@ vercel.json         # Cron設定（E4）
 3. マイグレーション（0004・0005）をSupabaseに適用するかどうかをユーザーと確認する（本番/共有DBへの影響を伴う操作のため、実行前に必ず確認する）。
 
 **次にやること（優先順、ユーザー未確認）**：①マイグレーション適用の承認、②`/agency/clients/[id]/targets`の実データ接続（モックのUIを移植）、③施策マスタ有効/無効管理画面の実装、④外部連携ID機能の実機確認。
+
+---
+
+## 10. 2026-08-27（続き・3セッション目）セッション終了メモ（次回はここから読む）
+
+同日3つ目のセッション。「## 9.」の積み残しのうち、①マイグレーション適用と②`/agency/clients/[id]/targets`の実データ接続を完了した。
+
+**このセッションで完了した作業**：
+
+1. **マイグレーション適用**：`supabase/migrations/0004_channel_targets_budget_and_settings.sql`・`0005_client_external_id.sql`をユーザー承認のうえ`supabase db query --linked --file`でSupabaseに適用済み（linkedプロジェクト：`jyqmoosjduemlocpgqqu`「dashboard for mark」）。`campaign_targets`・`client_channel_settings`テーブル、`clients.fiscal_year_start_month`・`clients.external_client_id`・`campaign_channels.enabled`列の存在、および`targets`から`kpi_key='leads_total'`行が削除済みであることを確認済み。
+2. **`/agency/clients/[id]/targets`の実データ接続**（improvement.md §4-1・§9-1・§9-2・§2-7）：
+   - `src/lib/targets/kpiLabels.ts`：`KPI_LABELS`から`leads_total`を除外（来場予約数・来場数・契約数の3種のみ）。「合計反響数」は`campaign_targets`のロールアップに一本化。
+   - `src/lib/metrics/aggregate.ts`：`CampaignTargetDbRow`型・`sumCampaignTargetLeads`（拠点別＋全社共通の自動合算、未入力はNULL=0扱い）を追加。`buildTargetVsActual`のシグネチャに`campaignTargets`引数を追加し、「合計反響数」の目標値をtargetsテーブルからcampaign_targetsのロールアップに切り替え（実績側`stages.leads`の定義は変更していない——広告施策のみを対象とする目標と、運用施策分も含む実績との間にスコープの差が残る点をコード注釈に明記）。
+   - `src/lib/metrics/loadClientDataset.ts`：`campaignTargets`を追加取得。呼び出し元の`RealDashboard.tsx`・`generateReport.ts`を更新（ダッシュボード「予実対比」・レポート生成のどちらも新しいシグネチャに追従、既存の見た目・挙動は維持）。
+   - `src/lib/metrics/aggregate.test.ts`：`sumCampaignTargetLeads`のテストを追加、`buildTargetVsActual`のテストを新シグネチャに更新。29件全テストパス。
+   - 新規：`src/lib/targets/fiscalYearGrid.ts`（年間グリッドの月列・単価算出・null込み合算などの共通ヘルパー、"use client"なしでpage.tsx/actions.tsの双方から利用）、`src/lib/targets/visibleAdChannels.ts`（`client_channel_settings`・`campaign_channels.enabled`を考慮した「表示すべき広告施策」一覧の取得。管理画面UI未実装のため現状は実質フィルタなし）。
+   - `src/app/(agency)/agency/clients/[id]/targets/page.tsx`・`actions.ts`を全面書き換え。タブ構成（チャネル別計画／会社全体KPI／年間予実）は`dev-preview/targets-budget`のモックをSSR＋Server Action版として実データに移植：
+     - 「チャネル別計画」：拠点セレクタ＋広告施策ごとに目標（反響件数）・予算（円）を年間12ヶ月ぶん一括入力、単価はサーバー側で自動算出（読み取り専用）。保存は`saveChannelPlan`（`campaign_targets`）。
+     - 「会社全体KPI」：来場予約数・来場数・契約数を年間一括入力（`targets`テーブル、`saveCompanyKpiGrid`）。「合計反響数」行はチャネル別計画の自動集計（読み取り専用）。
+     - 「年間予実」：目標×実績を月ごとに比較する読み取り専用グリッド（§2-7）。会社全体KPI・チャネル別（拠点スコープ切替可）の両方に対応。実績データは`campaign_metrics`・`funnel_metrics`から`tab=actual`の時のみ追加取得。
+     - 事業年度の開始月（`clients.fiscal_year_start_month`）はこの画面から直接編集できるようにした（クライアント編集画面がまだ存在しないため）。
+   - `campaign_targets`のUNIQUE制約はcampaign_metrics/funnel_metricsと同じ理由で部分インデックスに分かれているため、`saveChannelPlan`は既存行をまとめてSELECTしてからinsert（新規）/upsert(id指定、通常インデックス)/delete（空欄化）に振り分ける方式にした（PostgRESTの`upsert(onConflict)`が使えないため。既存の`upsertFunnelMetric.ts`と同じ設計判断）。
+   - 検証：`npx tsc --noEmit`・`npm run lint`・`npm run test`（29件）・`npm run build`すべて成功。**認証必須ページのためブラウザでの実機確認は未実施**（外部連携ID機能と同じ制約）。
+
+**このセッションで完了していないこと（次回に持ち越し）**：
+
+- ブラウザでの実機確認（`/agency/clients/[id]/targets`の3タブとも）。Google OAuth認証が必要なため、次回は認証済みセッションでの確認方法をユーザーと相談すること。
+- 施策マスタの有効/無効を切り替える管理画面UI（improvement.md §3-3）は未実装（`visibleAdChannels.ts`は前提として実装済みだが、切り替えるためのUIが無い）。
+- ダッシュボード側の表示統合（チャネル別内訳テーブルへの「予算」「消化率」列追加など、§9-1で「方針として維持」とされていた部分）は今回のスコープ外（目標・予算入力自体の実データ接続を優先したため）。
+- 本セッションの変更はまだ`git commit`していない（ユーザーに確認してから実施する）。
+
+**次回セッション開始時に最初に確認すること**：
+
+1. `git status`で本セッションの変更が未コミットのまま残っているか確認する。
+2. コミット・pushの要否をユーザーに確認する（前回まで含めて`origin/main`より5コミット先行、pushは未実施）。
+3. `/agency/clients/[id]/targets`をブラウザで実機確認する方法（ログイン済みセッションでの確認、またはテスト用アカウントの用意）をユーザーと相談する。
+
+**次にやること（優先順、ユーザー未確認）**：①本セッション変更のコミット・push可否の確認、②targets画面の実機確認、③施策マスタ有効/無効管理画面の実装、④外部連携ID機能の実機確認、⑤ダッシュボードへの予算・消化率表示統合。

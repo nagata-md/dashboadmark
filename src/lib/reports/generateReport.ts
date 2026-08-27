@@ -26,7 +26,7 @@ export function buildSnapshot(dataset: ClientDataset, period: ResolvedReportPeri
     channelLeads: toChannelLeadsList(channelBreakdown),
     channelBreakdown,
     locationBreakdown: buildLocationBreakdown(dataset.campaignRows, dataset.funnelRows, dataset.locations, period.range),
-    targetVsActual: buildTargetVsActual(funnel, dataset.targets, period.range),
+    targetVsActual: buildTargetVsActual(funnel, dataset.targets, dataset.campaignTargets, period.range),
     productionCostTotal: sumProductionCost(dataset.productionCosts, period.range),
   };
 }
