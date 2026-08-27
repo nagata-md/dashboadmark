@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import { isChannelVisible } from "@/lib/campaigns/channelVisibility";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -29,6 +30,6 @@ export async function getVisibleAdChannels(
   const overrideByChannelId = new Map((settings ?? []).map((s) => [s.channel_id, s.enabled]));
 
   return (channels ?? [])
-    .filter((c) => (c.client_id !== null ? c.enabled : (overrideByChannelId.get(c.id) ?? true)))
+    .filter((c) => isChannelVisible(c, overrideByChannelId))
     .map((c) => ({ id: c.id, name: c.name, method: c.method }));
 }

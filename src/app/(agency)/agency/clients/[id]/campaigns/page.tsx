@@ -9,6 +9,7 @@ import { CampaignsView } from "@/components/campaigns/CampaignsView";
 import { RealAdConnections } from "@/components/ads/RealAdConnections";
 import { getClient } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
+import { isChannelVisible } from "@/lib/campaigns/channelVisibility";
 import { resolvePeriod, type PeriodParams } from "@/lib/campaigns/period";
 import { FIELD_KEYS, FIELD_LABELS } from "@/lib/campaigns/fieldKeys";
 import {
@@ -23,6 +24,8 @@ import {
   addProductionCost,
   deleteProductionCost,
   revertToApiValue,
+  setCustomChannelEnabled,
+  setDefaultChannelEnabled,
 } from "./actions";
 
 export const metadata = {
@@ -91,11 +94,23 @@ export default async function AgencyCampaignsPage({
   // デフォルト17施策（client_id is null）＋このクライアント固有の追加施策（spec §4.2.3）。
   const { data: channels } = await supabase
     .from("campaign_channels")
-    .select("id, name, type, client_id, enabled_fields")
+    .select("id, name, type, client_id, enabled, enabled_fields")
     .or(`client_id.is.null,client_id.eq.${clientId}`)
     .order("sort_order", { ascending: true });
 
-  const customChannels = (channels ?? []).filter((c) => c.client_id !== null);
+  // デフォルト施策のクライアント単位の有効/無効上書き（improvement.md §3-3）。
+  const { data: channelSettings } = await supabase
+    .from("client_channel_settings")
+    .select("channel_id, enabled")
+    .eq("client_id", clientId);
+  const defaultChannelOverrides = new Map((channelSettings ?? []).map((s) => [s.channel_id, s.enabled]));
+
+  const allChannelsWithState = (channels ?? []).map((c) => ({
+    ...c,
+    isDefault: c.client_id === null,
+    isEnabled: isChannelVisible(c, defaultChannelOverrides),
+  }));
+  const customChannels = allChannelsWithState.filter((c) => !c.isDefault);
 
   let metricsByChannel = new Map<
     string,
@@ -224,7 +239,7 @@ export default async function AgencyCampaignsPage({
                 </Tr>
               </thead>
               <tbody>
-                {(channels ?? []).map((channel) => {
+                {allChannelsWithState.filter((c) => c.isEnabled).map((channel) => {
                   const m = metricsByChannel.get(channel.id);
                   const isAd = channel.type === "ad";
                   return (
@@ -333,6 +348,51 @@ export default async function AgencyCampaignsPage({
           期間・拠点を選択して「表示」を押すと、施策一覧・制作費用が表示されます。
         </p>
       )}
+
+      <Panel title="施策の有効/無効管理" className="mb-4">
+        <p className="mb-4 text-xs text-gray-700">
+          このクライアントで使わない施策を無効化すると、施策データ入力・チャネル別内訳・目標/予算のチャネル別計画から除外されます（過去に記録済みのデータは削除されません）。
+        </p>
+        <Table>
+          <thead>
+            <Tr>
+              <Th>施策名</Th>
+              <Th>種別</Th>
+              <Th>出典</Th>
+              <Th>状態</Th>
+              <Th />
+            </Tr>
+          </thead>
+          <tbody>
+            {allChannelsWithState.map((channel) => {
+              const toggleAction = channel.isDefault
+                ? setDefaultChannelEnabled.bind(null, clientId, channel.id, !channel.isEnabled)
+                : setCustomChannelEnabled.bind(null, clientId, channel.id, !channel.isEnabled);
+              return (
+                <Tr key={channel.id}>
+                  <Td className="font-semibold text-navy">{channel.name}</Td>
+                  <Td>{channel.type === "ad" ? "広告" : "運用"}</Td>
+                  <Td>{channel.isDefault ? "デフォルト" : "クライアント固有"}</Td>
+                  <Td>
+                    {channel.isEnabled ? (
+                      <span className="text-success">有効</span>
+                    ) : (
+                      <span className="text-gray-500">無効</span>
+                    )}
+                  </Td>
+                  <Td>
+                    <form action={toggleAction}>
+                      <button type="submit" className="text-xs text-accent hover:underline">
+                        {channel.isEnabled ? "無効化する" : "有効化する"}
+                      </button>
+                    </form>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </Panel>
 
       <Panel title="施策マスタ管理（クライアント固有）">
         {customChannels.length > 0 ? (

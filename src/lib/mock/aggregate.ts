@@ -85,7 +85,7 @@ export function buildChannelBreakdown(
       const inflowRates = channelRows
         .map((r) => r.inflowRate)
         .filter((v): v is number => v != null);
-      return {
+      const row: ChannelBreakdownRow = {
         channelId: channel.id,
         channelName: channel.name,
         channelType: channel.type,
@@ -102,7 +102,9 @@ export function buildChannelBreakdown(
         ctr: ctr(clicks, impressions),
         cpc: cpc(cost, clicks),
         cpl: cpl(cost, leads),
+        budget: null, // モックデータには予算の概念が無い（実データ版のみ対応、improvement.md §9-1）
       };
+      return row;
     })
     .filter((row): row is ChannelBreakdownRow => row !== null)
     .sort((a, b) => a.sortOrder - b.sortOrder);

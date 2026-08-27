@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendBudgetRow,
   buildChannelBreakdown,
   buildFunnelStages,
   buildLocationBreakdown,
   buildTargetVsActual,
   buildTrend,
+  sumCampaignTargetBudget,
   sumCampaignTargetLeads,
   sumProductionCost,
   toChannelLeadsList,
@@ -94,6 +96,22 @@ describe("buildChannelBreakdown", () => {
     ];
     const [row] = buildChannelBreakdown(rows, [ORGANIC_CHANNEL], monthRange("2026-04"));
     expect(row.inflowRates.sort()).toEqual([0.1, 0.2]);
+  });
+
+  it("campaignTargetsを渡すと、拠点別＋全社共通の予算を自動合算してbudgetに入れる（§9-1）", () => {
+    const rows = [campaignRow({ cost: 50000, leads: 5 })];
+    const campaignTargets: CampaignTargetDbRow[] = [
+      { channel_id: AD_CHANNEL.id, location_id: "loc-a", period_start: "2026-04-01", target_leads: 10, budget_amount: 60000 },
+      { channel_id: AD_CHANNEL.id, location_id: null, period_start: "2026-04-01", target_leads: 5, budget_amount: 20000 },
+    ];
+    const [row] = buildChannelBreakdown(rows, [AD_CHANNEL], monthRange("2026-04"), campaignTargets);
+    expect(row.budget).toBe(80000);
+  });
+
+  it("campaignTargetsを省略した場合はbudgetがnullになる（後方互換）", () => {
+    const rows = [campaignRow({ cost: 50000, leads: 5 })];
+    const [row] = buildChannelBreakdown(rows, [AD_CHANNEL], monthRange("2026-04"));
+    expect(row.budget).toBeNull();
   });
 });
 
@@ -221,5 +239,31 @@ describe("buildTargetVsActual", () => {
     const stages = buildFunnelStages([], [], monthRange("2026-04"));
     const rows = buildTargetVsActual(stages, [], [], monthRange("2026-04"));
     expect(rows.every((r) => r.target === null)).toBe(true);
+  });
+});
+
+describe("sumCampaignTargetBudget", () => {
+  it("拠点別＋全社共通の予算を自動合算する", () => {
+    const rows: CampaignTargetDbRow[] = [
+      { channel_id: "ch-google", location_id: "loc-a", period_start: "2026-04-01", target_leads: 20, budget_amount: 100000 },
+      { channel_id: "ch-yahoo", location_id: null, period_start: "2026-04-01", target_leads: 10, budget_amount: 50000 },
+    ];
+    expect(sumCampaignTargetBudget(rows, monthRange("2026-04"))).toBe(150000);
+  });
+});
+
+describe("appendBudgetRow", () => {
+  it("広告施策の費用合計を実績、campaign_targetsの予算ロールアップを目標として行を追加する", () => {
+    const channelBreakdown = [
+      { channelId: "ch-ad", channelName: "Meta広告", channelType: "ad" as const, channelMethod: "manual" as const, sortOrder: 1, cost: 40000, impressions: null, clicks: null, leads: 5, followers: null, posts: null, views: null, inflowRates: [], ctr: null, cpc: null, cpl: null, budget: 60000 },
+      { channelId: "ch-organic", channelName: "Instagram運用", channelType: "organic" as const, channelMethod: "manual" as const, sortOrder: 2, cost: 5000, impressions: null, clicks: null, leads: 2, followers: null, posts: null, views: null, inflowRates: [], ctr: null, cpc: null, cpl: null, budget: null },
+    ];
+    const campaignTargets: CampaignTargetDbRow[] = [
+      { channel_id: "ch-ad", location_id: null, period_start: "2026-04-01", target_leads: 10, budget_amount: 60000 },
+    ];
+    const rows = appendBudgetRow([], channelBreakdown, campaignTargets, monthRange("2026-04"));
+    const budgetRow = rows.find((r) => r.kpiKey === "budget_consumption");
+    expect(budgetRow?.actual).toBe(40000); // 運用施策(organic)の費用は含めない
+    expect(budgetRow?.target).toBe(60000);
   });
 });

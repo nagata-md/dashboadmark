@@ -108,6 +108,9 @@ export interface ChannelBreakdownRow {
   ctr: number | null;
   cpc: number | null;
   cpl: number | null;
+  /** チャネル別予算（計画値、拠点別＋全社共通の自動合算）。improvement.md §9-1。
+   * モックデータ（lib/mock/aggregate.ts）には予算の概念が無いため常にnull。 */
+  budget: number | null;
 }
 
 /** 拠点別内訳の1行（全社共通を含む） */

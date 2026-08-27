@@ -123,3 +123,37 @@ export async function revertToApiValue(clientId: string, channelId: string) {
   await syncConnection(connection.id, { force: true });
   revalidatePath(`/agency/clients/${clientId}/campaigns`);
 }
+
+// spec §4.4.1・improvement.md §3-3：デフォルト17施策（client_id is null）のクライアント単位
+// 有効/無効の上書き。client_channel_settingsに行が無ければ有効扱いのため、無効化時のみ
+// 明示的に行を作る／有効に戻す時は行のenabledをtrueに更新する（削除ではなく更新に統一し、
+// 「誰がいつ変更したか」の履歴を残す）。
+export async function setDefaultChannelEnabled(clientId: string, channelId: string, enabled: boolean) {
+  const agencyUser = await requireAgencyUser();
+  const supabase = await createClient();
+
+  await supabase.from("client_channel_settings").upsert(
+    {
+      client_id: clientId,
+      channel_id: channelId,
+      enabled,
+      updated_by_type: "agency",
+      updated_by_id: agencyUser.id,
+    },
+    { onConflict: "client_id,channel_id" },
+  );
+
+  revalidatePath(`/agency/clients/${clientId}/campaigns`);
+}
+
+// spec §4.4.1・improvement.md §3-3：クライアント固有施策（client_id非null）の無効化。
+// 既存のcampaign_metrics/campaign_targetsとの参照整合性を保つため、ハードデリートではなく
+// campaign_channels.enabledの切り替えで表現する。
+export async function setCustomChannelEnabled(clientId: string, channelId: string, enabled: boolean) {
+  await requireAgencyUser();
+  const supabase = await createClient();
+
+  await supabase.from("campaign_channels").update({ enabled }).eq("id", channelId).eq("client_id", clientId);
+
+  revalidatePath(`/agency/clients/${clientId}/campaigns`);
+}

@@ -141,6 +141,7 @@ export function buildChannelBreakdown(
   campaignRows: CampaignMetricDbRow[],
   channels: ChannelDbRow[],
   range: DateRange,
+  campaignTargets: CampaignTargetDbRow[] = [],
 ): ChannelBreakdownRow[] {
   return channels
     .map((channel) => {
@@ -154,6 +155,10 @@ export function buildChannelBreakdown(
       const views = sumNullableFlow(rows, range, (r) => r.views);
       const followers = latestStockValue(rows, range, (r) => r.followers);
       const inflowRates = collectRatioValues(rows, range, (r) => r.inflow_rate);
+      const budget = sumCampaignTargetBudget(
+        campaignTargets.filter((t) => t.channel_id === channel.id),
+        range,
+      );
       const row: ChannelBreakdownRow = {
         channelId: channel.id,
         channelName: channel.name,
@@ -171,6 +176,7 @@ export function buildChannelBreakdown(
         ctr: calcCtr(clicks, impressions),
         cpc: calcCpc(cost, clicks),
         cpl: calcCpl(cost, leads),
+        budget,
       };
       return row;
     })
@@ -252,17 +258,33 @@ export function buildTrend(
   });
 }
 
-/** チャネル別反響数目標（campaign_targets、月次のみ）の期間内合算。会社全体の目標は
- * 拠点別＋全社共通(location_id is null)行の自動合算として算出する方針のため（§9-1）、
- * この関数には location でフィルタしていない全行を渡す。range と重なる行が1件も無ければ
- * null（未設定）、それ以外は各行の target_leads（未入力はNULL=0扱い）を日数按分して合算する。 */
-export function sumCampaignTargetLeads(rows: CampaignTargetDbRow[], range: DateRange): number | null {
+/** campaign_targets（月次のみ）の指定フィールドを期間内で合算する共通実装。会社全体の値は
+ * 拠点別＋全社共通(location_id is null)行の自動合算として算出する方針のため（§9-1）、通常は
+ * location でフィルタしていない全行を渡す（1チャネルぶんだけに絞って渡すこともできる、
+ * buildChannelBreakdownのチャネル別予算算出を参照）。range と重なる行が1件も無ければ
+ * null（未設定）、それ以外は各行の値（未入力はNULL=0扱い）を日数按分して合算する。 */
+function sumCampaignTargetsField(
+  rows: CampaignTargetDbRow[],
+  range: DateRange,
+  getValue: (row: CampaignTargetDbRow) => number | null,
+): number | null {
   const weighted = withWeights(
     rows.map((r) => ({ ...r, period_type: "monthly" as PeriodType })),
     range,
   );
   if (weighted.length === 0) return null;
-  return weighted.reduce((acc, w) => acc + (w.row.target_leads ?? 0) * w.weight, 0);
+  return weighted.reduce((acc, w) => acc + (getValue(w.row) ?? 0) * w.weight, 0);
+}
+
+export function sumCampaignTargetLeads(rows: CampaignTargetDbRow[], range: DateRange): number | null {
+  return sumCampaignTargetsField(rows, range, (r) => r.target_leads);
+}
+
+/** チャネル別予算（campaign_targets.budget_amount）の期間内合算。sumCampaignTargetLeadsと
+ * 同じロールアップ方針（拠点別＋全社共通の自動合算）。ダッシュボードの「予実対比」の
+ * 予算消化行、チャネル別内訳の予算列の両方で使う（improvement.md §9-1）。 */
+export function sumCampaignTargetBudget(rows: CampaignTargetDbRow[], range: DateRange): number | null {
+  return sumCampaignTargetsField(rows, range, (r) => r.budget_amount);
 }
 
 /** 予実対比（spec §4.4/§4.5）。目標は月次のみ（targets.period_start=月初日）のため、target の
@@ -303,5 +325,26 @@ export function buildTargetVsActual(
     return { kpiKey, label, actual: stageValues[kpiKey], target };
   });
   return [leadsRow, ...rest];
+}
+
+/** buildTargetVsActualの結果に「予算消化」行を追加する（ダッシュボード「予実対比」・
+ * レポート生成の両方で使う、improvement.md §9-1）。実績は広告施策のチャネル別内訳
+ * （buildChannelBreakdownの結果）の費用合計、目標はcampaign_targetsの予算ロールアップ。 */
+export function appendBudgetRow(
+  rows: TargetVsActualRow[],
+  channelBreakdown: ChannelBreakdownRow[],
+  campaignTargets: CampaignTargetDbRow[],
+  range: DateRange,
+): TargetVsActualRow[] {
+  const costActual = channelBreakdown
+    .filter((c) => c.channelType === "ad")
+    .reduce((sum, c) => sum + (c.cost ?? 0), 0);
+  const budgetRow: TargetVsActualRow = {
+    kpiKey: "budget_consumption",
+    label: "予算消化（広告施策）",
+    actual: costActual,
+    target: sumCampaignTargetBudget(campaignTargets, range),
+  };
+  return [...rows, budgetRow];
 }
 

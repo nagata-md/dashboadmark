@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
 import { loadClientDataset } from "@/lib/metrics/loadClientDataset";
 import {
+  appendBudgetRow,
   buildChannelBreakdown,
   buildFunnelStages,
   buildLocationBreakdown,
@@ -63,16 +64,21 @@ export async function RealDashboard({
 
   const range = monthRange(periodMonth);
   const funnel = buildFunnelStages(dataset.campaignRows, dataset.funnelRows, range);
-  const channelBreakdown = buildChannelBreakdown(dataset.campaignRows, dataset.channels, range);
+  const channelBreakdown = buildChannelBreakdown(dataset.campaignRows, dataset.channels, range, dataset.campaignTargets);
   const locationBreakdown = buildLocationBreakdown(dataset.campaignRows, dataset.funnelRows, dataset.locations, range);
-  const targetVsActual = buildTargetVsActual(funnel, dataset.targets, dataset.campaignTargets, range);
+  const targetVsActual = appendBudgetRow(
+    buildTargetVsActual(funnel, dataset.targets, dataset.campaignTargets, range),
+    channelBreakdown,
+    dataset.campaignTargets,
+    range,
+  );
   const productionCostTotal = sumProductionCost(dataset.productionCosts, range);
   const trend = buildTrend(dataset.campaignRows, dataset.funnelRows, lastNMonthKeys(periodMonth, TREND_MONTHS));
 
   const compareRange = showCompare ? monthRange(comparePeriodMonth) : null;
   const compareFunnel = compareRange ? buildFunnelStages(dataset.campaignRows, dataset.funnelRows, compareRange) : null;
   const compareChannelBreakdown = compareRange
-    ? buildChannelBreakdown(dataset.campaignRows, dataset.channels, compareRange)
+    ? buildChannelBreakdown(dataset.campaignRows, dataset.channels, compareRange, dataset.campaignTargets)
     : null;
   const compareLocationBreakdown = compareRange
     ? buildLocationBreakdown(dataset.campaignRows, dataset.funnelRows, dataset.locations, compareRange)

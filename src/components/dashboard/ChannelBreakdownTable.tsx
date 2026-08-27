@@ -7,6 +7,13 @@ import type { ChannelBreakdownRow } from "@/lib/mock/types";
 // 出し分けず常に計算する。未入力の項目は値自体がnullのため自然に「-」表示になる。これにより
 // クライアント固有のカスタムチャネル（任意の項目組み合わせ）でも列ロジックを変更せずに対応できる（2026-08-10確認）。
 
+/** 予算消化率（費用÷予算）。予算・費用のどちらかが未入力/0なら算出不可として「-」表示にする
+ * （spec §4.2のCPL算出ルールと同じ考え方、improvement.md §9-1）。 */
+function consumptionRate(cost: number | null, budget: number | null): number | null {
+  if (!cost || !budget) return null;
+  return cost / budget;
+}
+
 export function ChannelBreakdownTable({ rows }: { rows: ChannelBreakdownRow[] }) {
   return (
     <Table>
@@ -14,6 +21,8 @@ export function ChannelBreakdownTable({ rows }: { rows: ChannelBreakdownRow[] })
         <Tr>
           <Th>施策</Th>
           <Th className="text-right">費用</Th>
+          <Th className="text-right">予算</Th>
+          <Th className="text-right">消化率</Th>
           <Th className="text-right">表示回数</Th>
           <Th className="text-right">クリック数</Th>
           <Th className="text-right">反響数</Th>
@@ -35,6 +44,8 @@ export function ChannelBreakdownTable({ rows }: { rows: ChannelBreakdownRow[] })
               </span>
             </Td>
             <Td className="text-right">{yen(row.cost)}</Td>
+            <Td className="text-right">{yen(row.budget)}</Td>
+            <Td className="text-right">{pct(consumptionRate(row.cost, row.budget))}</Td>
             <Td className="text-right">{num(row.impressions)}</Td>
             <Td className="text-right">{num(row.clicks)}</Td>
             <Td className="text-right font-semibold">{row.leads.toLocaleString()}</Td>

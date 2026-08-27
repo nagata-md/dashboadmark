@@ -3,6 +3,7 @@
 // 集計）の両方が同じ取得結果を使い回せるよう共通化している。RLSスコープのクライアント
 // （@/lib/supabase/server の createClient()）で呼ぶ想定（他の実データ画面と同じ規約）。
 import type { createClient } from "@/lib/supabase/server";
+import { isChannelVisible } from "@/lib/campaigns/channelVisibility";
 import type {
   CampaignMetricDbRow,
   CampaignTargetDbRow,
@@ -26,7 +27,7 @@ export interface ClientDataset {
 }
 
 export async function loadClientDataset(supabase: SupabaseServerClient, clientId: string): Promise<ClientDataset> {
-  const [campaignRes, funnelRes, costRes, targetRes, campaignTargetRes, channelRes, locationRes] = await Promise.all([
+  const [campaignRes, funnelRes, costRes, targetRes, campaignTargetRes, channelRes, channelSettingsRes, locationRes] = await Promise.all([
     supabase
       .from("campaign_metrics")
       .select(
@@ -48,11 +49,14 @@ export async function loadClientDataset(supabase: SupabaseServerClient, clientId
       .eq("client_id", clientId),
     supabase
       .from("campaign_channels")
-      .select("id, name, type, method, sort_order")
+      .select("id, name, type, method, sort_order, client_id, enabled")
       .or(`client_id.is.null,client_id.eq.${clientId}`)
       .order("sort_order", { ascending: true }),
+    supabase.from("client_channel_settings").select("channel_id, enabled").eq("client_id", clientId),
     supabase.from("locations").select("id, name").eq("client_id", clientId).order("created_at", { ascending: true }),
   ]);
+
+  const defaultChannelOverrides = new Map((channelSettingsRes.data ?? []).map((s) => [s.channel_id, s.enabled]));
 
   return {
     campaignRows: campaignRes.data ?? [],
@@ -60,7 +64,7 @@ export async function loadClientDataset(supabase: SupabaseServerClient, clientId
     productionCosts: costRes.data ?? [],
     targets: targetRes.data ?? [],
     campaignTargets: campaignTargetRes.data ?? [],
-    channels: channelRes.data ?? [],
+    channels: (channelRes.data ?? []).filter((c) => isChannelVisible(c, defaultChannelOverrides)),
     locations: locationRes.data ?? [],
   };
 }
