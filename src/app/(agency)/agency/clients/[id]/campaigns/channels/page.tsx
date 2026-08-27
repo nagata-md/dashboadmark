@@ -89,19 +89,6 @@ export default async function ChannelsMasterPage({
         }
       />
 
-      {adSuccessMessage && (
-        <p className="mb-4 rounded-control bg-success-tint px-3 py-2 text-xs text-success">
-          {adSuccessMessage}
-        </p>
-      )}
-      {adErrorMessage && (
-        <p className="mb-4 rounded-control bg-danger-tint px-3 py-2 text-xs text-danger">
-          {adErrorMessage}
-        </p>
-      )}
-
-      <RealAdConnections clientId={clientId} returnTo={returnTo} />
-
       <Panel title="施策の有効/無効管理" className="mb-4">
         <p className="mb-4 text-xs text-gray-700">
           このクライアントで使わない施策を無効化すると、施策データ入力・チャネル別内訳・目標/予算のチャネル別計画から除外されます（過去に記録済みのデータは削除されません）。
@@ -203,6 +190,19 @@ export default async function ChannelsMasterPage({
           </Button>
         </form>
       </Panel>
+
+      {adSuccessMessage && (
+        <p className="mb-4 rounded-control bg-success-tint px-3 py-2 text-xs text-success">
+          {adSuccessMessage}
+        </p>
+      )}
+      {adErrorMessage && (
+        <p className="mb-4 rounded-control bg-danger-tint px-3 py-2 text-xs text-danger">
+          {adErrorMessage}
+        </p>
+      )}
+
+      <RealAdConnections clientId={clientId} returnTo={returnTo} />
     </>
   );
 }
